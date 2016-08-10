@@ -33,7 +33,7 @@
     <arg name="land_vel" value="$(arg land_vel)" />
     <arg name="air_vel" value="$(arg air_vel)" />
     <arg name="time_step" default=".5" />
-    <arg name="optimal" default="False" />
+    <arg name="optimal" default="True" />
   </include>
 
   <include file="$(find planner)/launch/$(arg planner).launch">

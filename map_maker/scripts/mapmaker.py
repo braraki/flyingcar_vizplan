@@ -1,21 +1,12 @@
 #!/usr/bin/env python
 
 import rospy
-from std_msgs.msg import String
 from map_maker.srv import *
-'''
-from interactive_markers.interactive_marker_server import *
-from visualization_msgs.msg import *
-'''
-import math
 import matplotlib.pyplot as plt
-import time
-import random
 import networkx as nx
-from enum import Enum
 import numpy as np
-
 from map_maker import gen_adj_array_info_dict
+
 #imported parameters
 
 map_road_ratio = float(rospy.get_param('/mapmaker/map_road_ratio'))
@@ -52,71 +43,32 @@ for index in range(len(non_fly_list)):
 print(non_fly_list)
 print(map_pre_dict)
 
-#parameters
-auto_road_ratio = .5
-drone_ground_speed = 1
-drone_air_speed = 1
-
-#used to get edge ID, do not change
-edge_num = 0
-
 Category = gen_adj_array_info_dict.Category
 
-
-class return_node:
-	def __init__(self, x, y, z, ID, category):
-		self.x = x
-		self.y = y
-		self.z = z
-		self.ID = ID
-		self.category = category
-
-	def turn_to_graph(self, graph):
-		graph.add_node(self.ID)
-
-class edge:
-	def __init__(self, node1_ID, node2_ID, node1, node2, ID):
-		self.node1_ID = node1_ID
-		self.node2_ID = node2_ID
-		self.node1 = node1
-		self.node2 = node2
-		self.ID = ID
-
-	def turn_to_graph(self, graph):
-		graph.add_edge(self.node1_ID, self.node2_ID)
-
 class node:
-	def __init__(self, x, y, z = 0, angle = None, ID = None, category = None, successors = []):
-		global node_num
+	def __init__(self, category, x, y, z = 0, angle = None):
+		self.category = category
 		self.x = x
 		self.y = y
 		self.z = z
 		self.angle = angle
-		self.ID = ID
-		self.category = category
-		self.successors = successors[:]
+		self.ID = None
+		self.successors = []
 		self.add_successor(self)
 
 	def add_successor(self, suc):
 		if suc not in self.successors:
 			self.successors.append(suc)
 
-	def add_category(self, c):
-		self.category = c
+	def add_graph_node(self, graph):
+		graph.add_node(self.ID)
 
-	def generate_return_and_edge(self):
-		r_node = return_node(self.x, self.y, self.z, self.ID, self.category)
-		edge_list = []
-		for s in self.successors:
-			global edge_num
-			e = edge(self.ID, s.ID, self, s, edge_num)
-			edge_list.append(e)
-			edge_num += 1
-		return((r_node, edge_list))
+	def add_graph_edges(self, graph):
+		for suc in self.successors:
+			graph.add_edge(self.ID, suc.ID)
 
 class tile:
-
-	def __init__(self, length, width, exitnodelist = [], flyable = True, road_ratio = auto_road_ratio, x = None, y = None, elevation = 0, node_list = []):
+	def __init__(self, length, width, exitnodelist = [], flyable = True, x = None, y = None, elevation = 0):
 		self.length = length
 		self.width = width
 		if 'C' in exitnodelist and len(exitnodelist)>1:
@@ -126,16 +78,15 @@ class tile:
 			if i not in self.exitnodelist:
 				self.exitnodelist.append(i)
 		self.flyable = flyable
-		self.road_ratio = road_ratio
 		self.elevation = elevation
 		self.x = x
 		self.y = y
-		self.node_list = node_list[:]
+		self.node_list = []
 
+	#tells if a node is over a tile
 	def is_contained(self, new_x, new_y):
 		if self.x - .5*self.length <= new_x <= self.x +.5*self.length:
 			if self.y -.5*self.width <= new_y <= self.y +.5*self.width:
-				#print("TRUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
 				return(True)
 		return(False)
 
@@ -144,14 +95,13 @@ class tile:
 		self.x = x
 		self.y = y
 
-	#creates the node for a tile
-	def create_nodes(self):
-		delta_x = self.length*self.road_ratio*.25
-		delta_y = self.width*self.road_ratio*.25
+	#creates the land node for a tile (with the exception of the helipad park node)
+	def create_land_nodes(self):
+		delta_x = self.length*map_road_ratio*.25
+		delta_y = self.width*map_road_ratio*.25
 		#helipad
 		if self.exitnodelist == ['C']:
-			n = node(self.x, self.y, self.elevation, get_rud_angle(0,0))
-			n.add_category(Category.park)
+			n = node(Category.park, self.x, self.y, self.elevation, get_rud_angle(0,0))
 			self.node_list.append(n)
 		#dead-end
 		elif len(self.exitnodelist) == 1:
@@ -169,10 +119,8 @@ class tile:
 				x_coeff = 1
 			elif 'W' in self.exitnodelist:
 				x_coeff = 1
-			n1 = node(self.x+dx, self.y+dy, self.elevation, get_rud_angle(dx, dy))
-			n2 = node(self.x+dx*x_coeff, self.y+dy*y_coeff, self.elevation, get_rud_angle(dx*x_coeff, dy*y_coeff))
-			n1.add_category(Category.land)
-			n2.add_category(Category.land)
+			n1 = node(Category.land, self.x+dx, self.y+dy, self.elevation, get_rud_angle(dx, dy))
+			n2 = node(Category.land, self.x+dx*x_coeff, self.y+dy*y_coeff, self.elevation, get_rud_angle(dx*x_coeff, dy*y_coeff))
 			self.node_list.append(n1)
 			self.node_list.append(n2)
 
@@ -190,108 +138,43 @@ class tile:
 			elif ('E' in self.exitnodelist and 'S' in self.exitnodelist) or ('W' in self.exitnodelist and 'N' in self.exitnodelist):
 				dx *= 1
 				dy *= -1
-			n1 = node(self.x+dx, self.y+dy, self.elevation, get_rud_angle(dx, dy))
-			n2 = node(self.x-dx, self.y-dy, self.elevation, get_rud_angle(-dx, -dy))
-			n1.add_category(Category.land)
-			n2.add_category(Category.land)
+			n1 = node(Category.land, self.x+dx, self.y+dy, self.elevation, get_rud_angle(dx, dy))
+			n2 = node(Category.land, self.x-dx, self.y-dy, self.elevation, get_rud_angle(-dx, -dy))
 			self.node_list.append(n1)
 			self.node_list.append(n2)
 		#intersection
 		elif len(self.exitnodelist) > 2:
 			for dx in [-1*delta_x, 1*delta_x]:
 				for dy in [-1*delta_y, 1*delta_y]:
-					n = node(self.x+dx, self.y+dy, self.elevation, get_rud_angle(dx, dy))
-					n.add_category(Category.land)
+					n = node(Category.land, self.x+dx, self.y+dy, self.elevation, get_rud_angle(dx, dy))
 					self.node_list.append(n)
 		
-	#makes connections to nodes within the same tile, connects 90 degree off things anti-clockwise
+	#makes connections to nodes within the same tile, connects 90 degree off things anti-clockwise, also connects so U-turns and lane crossing are possible
 	def connect_own(self):
 		for node1 in self.node_list:
 			for node2 in self.node_list:
 				if node1.angle != None and node2.angle != None:
 					if node1.category == Category.land and node2.category == Category.land:
 						if (node2.angle - node1.angle)%360 == 90:
-							node1.add_successor(node2)
-						
+							node1.add_successor(node2)						
 						if len(self.exitnodelist) == 2:
 							if 'N' in self.exitnodelist and 'S' in self.exitnodelist:
 								node1.add_successor(node2)
 								node2.add_successor(node1)
 							elif 'E' in self.exitnodelist and 'W' in self.exitnodelist:
 								node1.add_successor(node2)
-								node2.add_successor(node1)
-						
+								node2.add_successor(node1)					
 
 	#adds parking nodes to a tile
+	#numbers are ugly, but they put the parking nodes half way between the end of the road and the end of the tile
 	def add_and_connect_parking(self):
 		dx = 0
 		dy = 0
 		#normal road
-		'''
-		if len(self.exitnodelist) == 2:
-			straight = False
-			if 'N' in self.exitnodelist and 'S' in self.exitnodelist:
-				dx = self.road_ratio*self.length*.5
-				straight = True
-			elif 'E' in self.exitnodelist and 'W' in self.exitnodelist:
-				dy = self.road_ratio*self.length*.5
-				straight = True
-			elif 'N' in self.exitnodelist and 'E' in self.exitnodelist:
-				dx = -1*self.road_ratio*self.length*.25
-				dy =  -1*self.road_ratio*self.width*.25
-			elif 'W' in self.exitnodelist and 'N' in self.exitnodelist:
-				dx = 1*self.road_ratio*self.length*.25
-				dy =  -1*self.road_ratio*self.width*.25
-			elif 'S' in self.exitnodelist and 'W' in self.exitnodelist:
-				dx = 1*self.road_ratio*self.length*.25
-				dy =  1*self.road_ratio*self.width*.25
-			elif 'E' in self.exitnodelist and 'S' in self.exitnodelist:
-				dx = -1*self.road_ratio*self.length*.25
-				dy =  1*self.road_ratio*self.width*.25
-			if straight:
-				n1 = node(self.x + dx, self.y + dy, self.elevation, get_rud_angle(dx, dy))
-				n1.add_category(Category.park)
-				n2 = node(self.x - dx, self.y - dy, self.elevation, get_rud_angle(-1*dx, -1*dy))
-				n2.add_category(Category.park)
-			else:
-				n1 = node(self.x + 2*dx, self.y + dy, self.elevation, get_rud_angle(dx, dy))
-				n1.add_category(Category.park)
-				n2 = node(self.x + dx, self.y + 2*dy, self.elevation, get_rud_angle(dx, dy))
-				n2.add_category(Category.park)
-			for n3 in self.node_list:
-				if n3.angle == n1.angle:
-					n3.add_successor(n1)
-					n1.add_successor(n3)
-				if n3.angle == n2.angle:
-					n3.add_successor(n2)
-					n2.add_successor(n3)
-			self.node_list.append(n1)
-			self.node_list.append(n2)
-
-		#3 way intersection and dead-end
-		elif len(self.exitnodelist) == 3 or len(self.exitnodelist) == 1 and 'C' not in self.exitnodelist:
-			if 'N' not in self.exitnodelist and 'S' in self.exitnodelist:
-				dy = self.road_ratio*self.length*.5
-			elif 'S' not in self.exitnodelist and 'N' in self.exitnodelist:
-				dy = -1*self.road_ratio*self.length*.5
-			elif 'E' not in self.exitnodelist and 'W' in self.exitnodelist:
-				dx = self.road_ratio*self.width*.5
-			elif 'W' not in self.exitnodelist and 'E' in self.exitnodelist:
-				dx = -1*self.road_ratio*self.width*.5
-			angle = get_rud_angle(dx, dy)
-			n1 = node(self.x + dx, self.y + dy, self.elevation, angle)
-			n1.add_category(Category.park)
-			self.node_list.append(n1)
-			for n in self.node_list:
-				if (n.angle - angle)%360 == 45:
-					n1.add_successor(n)
-				elif (angle - n.angle)%360 == 45:
-					n.add_successor(n1)
-		'''
-		left_x_dist = .5*self.length*(1 - self.road_ratio)
-		left_y_dist = .5*self.width*(1 - self.road_ratio)
-		road_x_dist = self.length*self.road_ratio
-		road_y_dist = self.width*self.road_ratio
+		left_x_dist = .5*self.length*(1 - map_road_ratio)
+		left_y_dist = .5*self.width*(1 - map_road_ratio)
+		road_x_dist = self.length*map_road_ratio
+		road_y_dist = self.width*map_road_ratio
 		if len(self.exitnodelist) == 2:
 			straight = False
 			if 'N' in self.exitnodelist and 'S' in self.exitnodelist:
@@ -321,15 +204,11 @@ class tile:
 				space_x = -1*.5*(.5*road_x_dist + left_x_dist)
 				space_y = 1*.5*(.5*road_y_dist + left_y_dist)
 			if straight:
-				n1 = node(self.x + dx, self.y + dy, self.elevation, get_rud_angle(dx, dy))
-				n1.add_category(Category.park)
-				n2 = node(self.x - dx, self.y - dy, self.elevation, get_rud_angle(-1*dx, -1*dy))
-				n2.add_category(Category.park)
+				n1 = node(Category.park, self.x + dx, self.y + dy, self.elevation, get_rud_angle(dx, dy))
+				n2 = node(Category.park, self.x - dx, self.y - dy, self.elevation, get_rud_angle(-1*dx, -1*dy))
 			else:
-				n1 = node(self.x + road_x + space_x, self.y + road_y, self.elevation, get_rud_angle(road_x, road_y))
-				n1.add_category(Category.park)
-				n2 = node(self.x + road_x, self.y + road_y + space_y, self.elevation, get_rud_angle(road_x, road_y))
-				n2.add_category(Category.park)
+				n1 = node(Category.park, self.x + road_x + space_x, self.y + road_y, self.elevation, get_rud_angle(road_x, road_y))
+				n2 = node(Category.park, self.x + road_x, self.y + road_y + space_y, self.elevation, get_rud_angle(road_x, road_y))
 			for n3 in self.node_list:
 				if n3.angle == n1.angle:
 					n3.add_successor(n1)
@@ -351,8 +230,7 @@ class tile:
 			elif 'W' not in self.exitnodelist and 'E' in self.exitnodelist:
 				dx = -1*.5*(road_x_dist + left_x_dist)
 			angle = get_rud_angle(dx, dy)
-			n1 = node(self.x + dx, self.y + dy, self.elevation, angle)
-			n1.add_category(Category.park)
+			n1 = node(Category.park, self.x + dx, self.y + dy, self.elevation, angle)
 			self.node_list.append(n1)
 			for n in self.node_list:
 				if (n.angle - angle)%360 == 45:
@@ -360,6 +238,7 @@ class tile:
 				elif (angle - n.angle)%360 == 45:
 					n.add_successor(n1)
 
+	#returns position of bottom left corner
 	def get_mark_pos(self):
 		mx = self.x - self.length*.5
 		my = self.y - self.width*.5
@@ -428,7 +307,7 @@ class tile:
 #think about remove interface and cloud arguments, never will be used
 class landscape:
 	#initiates a landscape
-	def __init__(self, num_long, num_wide, tile_dict = {}, interface = None, cloud = None):
+	def __init__(self, num_long, num_wide, tile_dict = {}):
 		self.num_long = num_long
 		self.num_wide = num_wide
 		self.tile_dict = tile_dict
@@ -441,21 +320,12 @@ class landscape:
 				else:
 					t = tile_dict[(x, y)]
 					t.set_co((x - x_shift)*t.length, (y - y_shift)*t.width)
-					t.create_nodes()
+					t.create_land_nodes()
 					t.connect_own()
 					t.add_and_connect_parking()
 					#t.add_mark_nodes()
-		self.interface = interface
-		self.cloud = cloud
-
-	#fills a tile
-	def fill_tile(self, tile, coordinate):
-		self.tile_dict[coordinate] = tile
-		x = coordinate[0]*tile.length
-		y = coordinate[1]*tile.width
-		tile.set_co(x, y)
-		tile.create_nodes()
-		tile.connect_own()
+		self.interface = None
+		self.cloud = None
 
 	#displays every tile
 	def display(self):
@@ -468,8 +338,7 @@ class landscape:
 	#checks if road runs into neighboring tiles, assumes map is valid
 	def ground_tile_successors(self, tile_coordinates):
 		t = self.tile_dict[tile_coordinates]
-		x = tile_coordinates[0]
-		y = tile_coordinates[1]
+		(x, y) = tile_coordinates
 		successors = []
 		if 'N' in t.exitnodelist and y<self.num_wide-1:
 			successors.append((x, y+1))
@@ -483,45 +352,36 @@ class landscape:
 
 	#does not assume valid map, verifies the ground tile successors and constructs a dict
 	def get_true_connection_dict(self):
-		successor_d = {}
-		for co in self.tile_dict:
-			suc = self.ground_tile_successors(co)
-			successor_d[co] = suc
 		checked_d = {}
-		for co in successor_d:
-			successors = successor_d[co]
-			true_successors = []
-			for s in successors:
-				if co in successor_d[s]:
-					true_successors.append(s)
-			checked_d[co] = true_successors
+		for co1 in self.tile_dict:
+			sucs = self.ground_tile_successors(co1)
+			good_sucs = []
+			for s in sucs:
+				if co1 in self.ground_tile_successors(s):
+					good_sucs.append(s)
+			checked_d[co1] = good_sucs
 		return(checked_d)
 
 	#assumes two tiles connect validly, finds and adds the connection between their nodes
 	def cross_tile_connect_node(self, tile1, tile2):
+		x1_sign = 1
+		y1_sign = 1
+		x2_sign = 1
+		y2_sign = 1
+		dom_axis = 'x'
 		if tile2.y > tile1.y and tile2.x == tile1.x:
-			x1_sign = 1
-			y1_sign = 1
-			x2_sign = 1
 			y2_sign = -1
-			dom_axis = 'x'
 		elif tile2.y < tile1.y and tile2.x == tile1.x:
 			x1_sign = -1
 			y1_sign = -1
 			x2_sign = -1
-			y2_sign = 1
-			dom_axis = 'x'
 		elif tile2.x > tile1.x and tile2.y == tile1.y:
-			x1_sign = 1
 			y1_sign = -1
 			x2_sign = -1
 			y2_sign = -1
 			dom_axis = 'y'
 		elif tile2.x < tile1.x and tile2.y == tile1.y:
 			x1_sign = -1
-			y1_sign = 1
-			x2_sign = 1
-			y2_sign = 1
 			dom_axis = 'y'
 		else:
 			return
@@ -544,22 +404,26 @@ class landscape:
 	def assign_ID(self):
 		num = 0
 		all_nodes = []
+		just_nodes = []
 		for t in self.tile_dict.values():
 			for n in t.node_list:
 				all_nodes.append(((n.z, n.y, n.x), n))
+				just_nodes.append(n)
 		if self.interface != None:
 			for ns in self.interface.node_dict.values():
 				for n in ns:
 					all_nodes.append(((n.z, n.y, n.x), n))
+					just_nodes.append(n)
 		if self.cloud != None:
 			for n in self.cloud.node_dict.values():
 				all_nodes.append(((n.z, n.y, n.x), n))
+				just_nodes.append(n)
 		all_nodes = sorted(all_nodes)
 		for info in all_nodes:
 			n = info[1]
 			n.ID = num
 			num += 1
-
+		return(just_nodes)
 
 	#generates lists of the simple node and edge class that represent the map
 	def get_nodes_and_edges(self):
@@ -573,26 +437,8 @@ class landscape:
 				self.connect_interface_and_cloud()
 			if optimal:
 				self.cloud.connect_to_land()
-		self.assign_ID()
-		return_node_list = []
-		edge_list = []
-		for t in self.tile_dict.values():
-			for n in t.node_list:
-				info = n.generate_return_and_edge()
-				return_node_list.append(info[0])
-				edge_list += info[1]
-		if self.interface != None:
-			for ns in self.interface.node_dict.values():
-				for n in ns:
-					info = n.generate_return_and_edge()
-					return_node_list.append(info[0])
-					edge_list += info[1]
-		if self.cloud != None:
-			for n in self.cloud.node_dict.values():
-				info = n.generate_return_and_edge()
-				return_node_list.append(info[0])
-				edge_list += info[1]
-		return((return_node_list, edge_list))
+		all_nodes = self.assign_ID()
+		return(all_nodes)
 
 	def get_mark_list(self):
 		mark_x = []
@@ -611,13 +457,11 @@ class landscape:
 
 	#builds interface
 	def generate_interface(self, interface_height):
-		i = interface(interface_height, self)
-		self.interface = i
+		self.interface = interface(interface_height, self)
 
 	#builds cloud
 	def generate_cloud(self, cloud_height, num_cloud_layers, cloud_layer_dist, cloud_density):
-		c = cloud(cloud_height, num_cloud_layers, cloud_layer_dist, cloud_density, self)
-		self.cloud = c
+		self.cloud = cloud(cloud_height, num_cloud_layers, cloud_layer_dist, cloud_density, self)
 
 	#connects interface to cloud
 	def connect_interface_and_cloud(self):
@@ -630,7 +474,6 @@ class landscape:
 					if c_node.z == min_z:
 						i_node.add_successor(c_node)
 						c_node.add_successor(i_node)
-
 
 # a single layer to connect the ground to the cloud
 class interface:
@@ -649,8 +492,7 @@ class interface:
 						if n.category == Category.park or n.category == Category.land:
 							x = n.x
 							y = n.y
-							n2 = node(x, y, self.height)
-							n2.add_category(Category.interface)
+							n2 = node(Category.interface, x, y, self.height)
 							temp_list.append(n2)
 					self.node_dict[t] = temp_list
 
@@ -698,14 +540,14 @@ class cloud:
 						y = base_y + dy*y_dist
 						for dx in range(self.density):
 							x = base_x + dx*x_dist
-							n = node(x, y, z)
-							n.add_category(Category.cloud)
+							n = node(Category.cloud, x, y, z)
 							if t not in self.tile_node_dict:
 								self.tile_node_dict[t] = [n]
 							else:
 								self.tile_node_dict[t] += [n]
 							self.node_dict[(x,y,z)] = n
 
+	#makes nodes when optimal
 	def opt_generate_nodes(self):
 		#getting air_cloud_dimensions
 		air_way_point_d = air_vel*(time_step)
@@ -741,8 +583,7 @@ class cloud:
 					for t in self.landscape.tile_dict.values():
 						if t.is_contained(x, y):
 							if t.flyable:
-								n = node(x, y, z)
-								n.add_category(Category.cloud)
+								n = node(Category.cloud, x, y, z)
 								if t not in self.tile_node_dict:
 									self.tile_node_dict[t] = [n]
 								else:
@@ -754,18 +595,15 @@ class cloud:
 					y_multiple += 1
 				x_multiple += 1
 			current_layer += 1
-		#print('cloud info dict')
-		#print(cloud_info_dict)
-		#print(" ")
 
-
-	#links adjacent (including diagonal) nodes in a two-way edge
+	#connects nodes
 	def connect_own(self):
 		if not optimal:
 			self.non_opt_connect_own()
 		else:
 			self.opt_connect_own()
 
+	#links adjacent (including diagonal) nodes in a two-way edge
 	def non_opt_connect_own(self):
 		for t in self.tile_node_dict:
 			nodes = self.tile_node_dict[t]
@@ -803,6 +641,7 @@ class cloud:
 															n1.add_successor(n2)
 															n2.add_successor(n1)
 
+	#connects nodes when optimal
 	def opt_connect_own(self):
 
 		air_way_point_d = air_vel*(time_step)
@@ -826,6 +665,7 @@ class cloud:
 					if x1 == x2 and y1 == y2:
 						n1.add_successor(n2)
 
+	#connect cloud to land, used when optimal
 	def connect_to_land(self):
 		for t in self.landscape.tile_dict.values():
 			if t.flyable:
@@ -845,49 +685,6 @@ class cloud:
 						n1.add_successor(chosen)
 						chosen.add_successor(n1)
 
-
-'''
-#step by step building of a map (probably not going to be used to much)
-#not up to date
-def builder():
-	tile_length = input('input tile length: ')
-	tile_width = input('input tile width: ')
-	num_long = input('input num long: ')
-	num_wide = input('input num wide: ')
-	l = landscape(num_long, num_wide)
-	for x in range(num_long):
-		for y in range(num_wide):
-			proper = False
-			while not proper:
-				print('current tile is '+str((x, y)))
-				directions = raw_input('input directions: ')
-				exitnodelist = []
-				if 'c' in directions or 'C' in directions:
-					exitnodelist.append('C')
-				if 'n' in directions or 'N' in directions:
-					exitnodelist.append('N')
-				if 's' in directions or 'S' in directions:
-					exitnodelist.append('S')
-				if 'e' in directions or 'E' in directions:
-					exitnodelist.append('E')
-				if 'w' in directions or 'W' in directions:
-					exitnodelist.append('W')
-				flyable = raw_input('input flyable: ')
-				if flyable == 'True' or flyable == 'False':
-					flyable = bool(flyable)
-					proper = True
-				else:
-					print('Something went wrong, try again on the same tile')
-			print(" ")
-			t = tile(tile_length, tile_width, exitnodelist, flyable)
-			l.fill_tile(t, (x, y))
-			l.display()
-	info = l.get_nodes_and_edges()
-	return_nodes = info[0]
-	edges = info[1]
-	node_plot(return_nodes, edges)
-	return(info)
-'''
 #estimates an angle, used in connecting the nodes together
 #one would have no reason to call this function, but it is necessary for the code to function
 def get_rud_angle(dx, dy):
@@ -921,80 +718,6 @@ def node_plot(node_list, edge_list):
 			ax.arrow(n1x, n1y, n2x - n1x, n2y - n1y, head_width = .15, head_length = .35)
 	plt.show()
 
-#generates a random valid map, does not necessarily have the map fully connected (islands can exist)
-def generate_random_world(num_long, num_wide, length, width, density):
-	l = landscape(num_long, num_wide)
-	current_density = 0
-	letters = ['N','S','E','W','C']
-	tile_dict = {}
-	coop_list = []
-	for x in range(num_long):
-		for y in range(num_wide):
-			tile_dict[(x,y)] = []
-			coop_list.append((x,y))
-	iterations = 0
-	while current_density < density:
-		co_1 = random.choice(coop_list)
-		if len(tile_dict[co_1]) >= 2:
-			co_1 = random.choice(coop_list)
-			if len(tile_dict[co_1])>=2:
-				co_1 = random.choice(coop_list)
-		letter = random.choice(letters)
-		current_list = tile_dict[co_1]
-		if letter == 'N' and co_1[1]<(num_wide-1) and 'N' not in current_list:
-			current_list.append('N')
-			tile_dict[co_1] = current_list
-			next_list = tile_dict[(co_1[0], co_1[1]+1)]
-			next_list.append('S')
-			tile_dict[(co_1[0], co_1[1]+1)] = next_list
-		elif letter == 'S' and co_1[1]>0 and 'S' not in current_list:
-			current_list.append('S')
-			tile_dict[co_1] = current_list
-			next_list = tile_dict[(co_1[0], co_1[1]-1)]
-			next_list.append('N')
-			tile_dict[(co_1[0], co_1[1]-1)] = next_list
-		elif letter == 'E' and co_1[0]<(num_long-1) and 'E' not in current_list:
-			current_list.append('E')
-			tile_dict[co_1] = current_list
-			next_list = tile_dict[(co_1[0]+1, co_1[1])]
-			next_list.append('W')
-			tile_dict[(co_1[0]+1, co_1[1])] = next_list
-		elif letter == 'W' and co_1[0]>0 and 'W' not in current_list:
-			current_list.append('W')
-			tile_dict[co_1] = current_list
-			next_list = tile_dict[(co_1[0]-1, co_1[1])]
-			next_list.append('E')
-			tile_dict[(co_1[0]-1, co_1[1])] = next_list
-		elif letter == 'C' and current_list == []:
-			current_list.append('C')
-			tile_dict[co_1] = current_list
-		paths = 0
-		for co in coop_list:
-			paths += len(tile_dict[co])
-		current_density = paths/float(num_long*num_wide*4)
-		iterations += 1
-		#print(iterations)
-		#print(current_density)
-	for tile in tile_dict:
-		v = tile_dict[tile]
-		if len(v)>1 and 'C' in v:
-			v.remove('C')
-		tile_dict[tile] = v
-	return(tile_dict)
-
-
-'''
-map_num_long = 8
-map_num_wide = 8
-map_pre_dict = generate_random_world(map_num_long, map_num_wide, map_tile_size, map_tile_size, .5)
-
-
-
-
-
-'''
-
-
 #the next scripts constructs a landscape and then a node/edge map without calling builder
 #one can fairly easily use a script to build a landscape and as our landscape will be mostly
 #set, this (or something similar), is probably what we will use to construct the landscape
@@ -1008,19 +731,15 @@ for co in map_pre_dict.keys():
 		elevation = helipad_height
 	if co in non_fly_list:
 		flyable = False
-	t = tile(map_tile_size, map_tile_size, exitnodelist, flyable, map_road_ratio, co[0]*map_tile_size, co[1]*map_tile_size, elevation)
+	t = tile(map_tile_size, map_tile_size, exitnodelist, flyable, co[0]*map_tile_size, co[1]*map_tile_size, elevation)
 	map_dict[co] = t
 
 final_map = landscape(map_num_long, map_num_wide, map_dict)
 
 final_map.generate_interface_and_cloud(map_interface_height, map_cloud_height, map_num_cloud_layers, map_cloud_layer_dist, map_cloud_density)
 
-
-info = final_map.get_nodes_and_edges()
-return_nodes = info[0]
-edges = info[1]
+return_nodes = final_map.get_nodes_and_edges()
 (mark_x, mark_y) = final_map.get_mark_list()
-
 #building csv files, no longer necessary, but I like it
 ID_dict = {}
 category_dict = {}
@@ -1037,30 +756,13 @@ for n in return_nodes:
 	ID = n.ID
 	ID_dict[ID] = (x,y,z)
 	category_dict[ID] = n.category
-	#node_writer.writerow([str(ID), str(x), str(y), str(z)])
-	'''
-	if n.category == Category.park:
-		num_parking += 1
-	elif n.category == Category.land:
-		num_land += 1
-	elif n.category == Category.interface:
-		num_interface += 1
-	elif n.category == Category.cloud:
-		num_cloud += 1
-	'''
-'''
-print('num parking: '+str(num_parking))
-print('num mark: '+str(num_mark))
-print('num land: '+str(num_land))
-print('num interface: '+str(num_interface))
-print('num cloud: '+str(num_cloud))
-'''
+
 #networkx
 G = nx.DiGraph()
 for n in return_nodes:
-	n.turn_to_graph(G)
-for e in edges:
-	e.turn_to_graph(G)
+	n.add_graph_node(G)
+for n in return_nodes:
+	n.add_graph_edges(G)
 A = nx.adjacency_matrix(G)
 A = nx.to_numpy_matrix(G)
 A2 = A.flatten()
@@ -1086,18 +788,14 @@ for ID in ID_dict:
 	category_list[ID] = int(cat)
 num_nodes = len(ID_dict)
 
-
-
 def response(req):
 	return MapTalkResponse(category_list, x_list, y_list, z_list, num_nodes, A5, mark_x, mark_y)
 
 def info_sender():
-	rospy.init_node('map_maker_server')
 	s = rospy.Service('send_map', MapTalk,response)
 	print('ready to send info back')
 	rospy.spin()
 
-
-
 if __name__ == "__main__":
+	rospy.init_node('map_maker_server')
 	info_sender()

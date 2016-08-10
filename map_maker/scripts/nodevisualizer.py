@@ -49,18 +49,6 @@ def processFeedback(feedback):
 	p = feedback.pose.position
 	print feedback.marker_name + " is now at " + str(p.x) + ", " + str(p.y) + ", " + str(p.z)
 
-'''
-class Category(Enum):
-	mark = 0
-	land = 1
-	park = 2
-	interface = 3
-	cloud = 4
-	waypoint = 5
-
-static_category_dict = {0: Category.mark, 1: Category.land, 2: Category.park, 3: Category.interface, 4: Category.cloud, 5: Category.waypoint}
-'''
-
 class visual_node:
 	def __init__(self, ID, x, y, z, category = None, successors = [], precursors = []):
 		self.ID = ID

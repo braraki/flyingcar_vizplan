@@ -31,17 +31,7 @@ while delay_2 > delay:
 	delay_2 *= .1
 
 current_time = 0.0
-'''
-class Category(Enum):
-	mark = 0
-	land = 1
-	park = 2
-	interface = 3
-	cloud = 4
-	waypoint = 5
 
-static_category_dict = {0: Category.mark, 1: Category.land, 2: Category.park, 3: Category.interface, 4: Category.cloud, 5: Category.waypoint}
-'''
 #returns list of points from path
 def analyse(p, times, info_dict):
 	'''
