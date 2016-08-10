@@ -189,7 +189,8 @@ class full_system:
 		rospy.Subscriber('~time_path_topic', HiPathTime, self.act)
 		rospy.Subscriber('~Start_SimPos_topic', SimPos, self.setup)
 		#print('in runner')
-		rospy.spin()
+		
+		#rospy.spin()
 
 	#assigns path info
 	def act(self, data):
@@ -206,7 +207,7 @@ class full_system:
 		rate = rospy.Rate(1/float(delay))
 		start_time = time.time()
 		reps = 0
-		while True:#self.go:
+		while not rospy.is_shutdown():#self.go:
 			actual_time = time.time()
 			
 			#if reps%1000 == 0:
@@ -238,6 +239,8 @@ class full_system:
 				#print(current_time)
 				current_time += delay
 				reps += 1
+
+			rospy.sleep(0.1)
 
 	#path info for a crazyflies first path
 	def collect_info(self, data):
@@ -299,4 +302,5 @@ if __name__ == "__main__":
 	Category = gen_adj_array_info_dict.Category
 	fs = full_system(info_dict, A)
 	fs.runner()
+	rospy.spin()
 
