@@ -1,0 +1,435 @@
+#!/usr/bin/env python
+
+import rospy
+from std_msgs.msg import String
+from map_maker.srv import *
+
+from interactive_markers.interactive_marker_server import *
+from visualization_msgs.msg import *
+from geometry_msgs.msg import Point
+
+import math
+import matplotlib.pyplot as plt
+import time
+import random
+
+import csv
+import networkx as nx
+from enum import Enum
+import numpy as np
+
+
+interface_height = None
+
+def processFeedback(feedback):
+	p = feedback.pose.position
+	print feedback.marker_name + " is now at " + str(p.x) + ", " + str(p.y) + ", " + str(p.z)
+
+class Category(Enum):
+	mark = 0
+	land = 1
+	park = 2
+	interface = 3
+	cloud = 4
+
+class visual_node:
+	def __init__(self, ID, x, y, z, category = None, successors = [], precursors = []):
+		self.ID = ID
+		self.x = x
+		self.y = y 
+		self.z = z
+		if self.z == 0:
+			self.color = (0, 255, 0)
+		else:
+			self.color = (0, 0 ,255)
+		self.successors = successors[:]
+		self.precursors = precursors[:]
+		if category != None:
+			self.categorize(category)
+
+	def add_successor(self, node):
+		if node not in self.successors:
+			self.successors.append(node)
+
+	def add_precursor(self, node):
+		if node not in self.precursors:
+			self.precursors.append(node)
+
+	def categorize(self, category):
+		self.category = category
+		if category == Category.land or category == Category.park:
+			self.color = (0, 255, 0)
+		elif category == Category.interface:
+			self.color = (0, 0, 255)
+		elif category == Category.cloud:
+			self.color = (255, 255, 255)
+		elif category == Category.mark:
+			self.color = (0, 0, 0)
+
+	def construct(self, int_marker):
+		n_marker = Marker()
+		n_marker.type = Marker.CUBE
+		n_marker.scale.x = .1
+		n_marker.scale.y = .1
+		n_marker.scale.z = .1
+		(n_marker.color.r, n_marker.color.g, n_marker.color.b) = self.color	
+		n_marker.color.a = .5
+		n_marker.pose.position.x = self.x
+		n_marker.pose.position.y = self.y
+		n_marker.pose.position.z = self.z
+			
+		n_control = InteractiveMarkerControl()
+		n_control.always_visible = True
+		n_control.markers.append( n_marker )
+		int_marker.controls.append(n_control)
+
+		return(int_marker)
+
+class visual_edge:
+	def __init__(self, ID, node1ID, node2ID, node1 = None, node2 = None):
+		self.ID = ID
+		self.node1ID = node1ID
+		self.node2ID = node2ID
+		self.node1 = node1
+		self.node2 = node2
+
+	def construct(self, int_marker):
+		x1 = self.node1.x
+		y1 = self.node1.y
+		z1 = self.node1.z
+		x2 = self.node2.x
+		y2 = self.node2.y
+		z2 = self.node2.z
+
+		color = (100, 100, 100)
+		a_marker = Marker()
+		a_marker.type = Marker.ARROW
+		a_marker.scale.x = .05
+		a_marker.scale.y = .1
+		a_marker.scale.z = .1
+		(a_marker.color.r, a_marker.color.g, a_marker.color.b) = color
+		a_marker.color.a = .5
+		start = Point()
+		end = Point()
+
+		start.x = self.node1.x
+		start.y = self.node1.y
+		start.z = self.node1.z
+		end.x = self.node2.x
+		end.y = self.node2.y
+		end.z = self.node2.z
+
+		a_marker.points.append(start)
+		a_marker.points.append(end)
+			
+		a_control = InteractiveMarkerControl()
+		a_control.always_visible = True
+		a_control.markers.append( a_marker )
+		int_marker.controls.append(a_control)
+
+		return(int_marker)
+
+class node_scape:
+	'''
+	def __init__(self, node_doc, edge_doc):
+		self.node_list = []
+		self.node_ID_dict = {}
+		with open(node_doc, 'rb') as csvfile:
+			read = csv.reader(csvfile)
+			for row in read:
+				ID = int(row[0])
+				x = float(row[1])
+				y = float(row[2])
+				z = float(row[3])
+				vn = visual_node(ID, x, y, z)
+				self.node_list.append(vn)
+				self.node_ID_dict[ID] = vn
+		self.edge_list = []
+		with open(edge_doc, 'rb') as csvfile:
+			read = csv.reader(csvfile)
+			for row in read:
+				ID = int(row[0])
+				node1ID = int(row[1])
+				node2ID = int(row[2])
+				ve = visual_edge(ID, node1ID, node2ID, self.node_ID_dict[node1ID], self.node_ID_dict[node2ID])
+				self.edge_list.append(ve)
+		self.successor_precursors()
+		self.categorize_nodes()
+		self.tile_dict = {}
+	'''
+	def __init__(self, info_dict, adjacency_matrix, num_IDs):
+		self.info_dict = info_dict
+		self.adjacency_matrix = adjacency_matrix
+		self.num_IDs = num_IDs
+		self.node_list = []
+		self.node_ID_dict = {}
+		self.edge_list = []
+		for ID in info_dict:
+			info = info_dict[ID]
+			coor = info[0]
+			cat = info[1]
+			n = visual_node(ID, coor[0], coor[1], coor[2], cat)
+			self.node_list.append(n)
+			self.node_ID_dict[ID] = n
+		edge_num = 0
+		for (ID1, row) in enumerate(adjacency_matrix):
+			for (ID2, value) in enumerate(row):
+				if value == 1:
+					n1 = self.node_ID_dict[ID1]
+					n2 = self.node_ID_dict[ID2]
+					e = visual_edge(edge_num, ID1, ID2, n1, n2)
+					self.edge_list.append(e)
+					edge_num += 1
+		self.successor_precursors()
+		self.tile_dict = {}
+
+	def successor_precursors(self):
+		print('edge work')
+		for e in self.edge_list:
+			n1 = e.node1
+			n2 = e.node2
+			n1.add_successor(n2)
+			n2.add_precursor(n1)
+		print('edge work over')
+
+	'''
+	def categorize_node_iteration(self):
+		maxlandID = 0
+		global interface_height
+		nl = self.node_list[:]
+		for node in nl:
+			if node.category == None:
+				#defining land nodes
+				if node.z == 0:
+					node.categorize('land')
+					if node.ID > maxlandID:
+						maxlandID = node.ID
+				elif node.ID < maxlandID:
+					node.categorize('land')
+				#defining interface node
+				#node.z >0 and ID not less than current maxlandID, helipads could have made it through
+				elif interface_height != None:
+						if node.z == interface_height:
+							node.categorize('interface')
+						elif node.z > interface_height:
+							node.categorize('cloud')
+						else:
+							node.categorize('land')
+				else:
+					adjacencys = node.successors
+					for n in adjacencys:
+						if n.category == 'land':
+							node.categorize('interface')
+							if interface_height == None:
+								interface_height = node.z
+							break
+						if n.category == 'interface' and node.z<interface_height:
+							node.categorize('land')
+							break
+
+	def check_categorized(self):
+		for node in self.node_list:
+			if node.category == None:
+				return(False)
+		return(True)
+
+	def categorize_nodes(self):
+		print('starting')
+		max_attempts = 10
+		attempt = 0
+		while attempt < max_attempts:
+			print(attempt)
+			self.categorize_node_iteration()
+			if self.check_categorized():
+				break
+			attempt += 1
+
+	'''
+
+	def build_tiles(self):
+		for node in self.node_list:
+			t = 1
+
+	def construct(self):
+		rospy.init_node("simple_marker")
+		#rospy.Subscriber('commands', String, self.interpret)
+
+		server = InteractiveMarkerServer("simple_marker")
+		
+		#rospy.Subscriber('commands', String, self.interpret)
+		
+		
+		# create an interactive marker for our server
+		int_marker = InteractiveMarker()
+		int_marker.header.frame_id = "base_link"
+		int_marker.name = "my_marker"
+
+		for n in self.node_list:
+			if True:#n.category == 'land':
+				int_marker = n.construct(int_marker)
+			# 'commit' changes and send to all clients
+		
+		for e in self.edge_list:
+			node1 = e.node1
+			node2 = e.node2
+			if True:#node1.category == 'land' and node2.category == 'land':
+				int_marker = e.construct(int_marker)
+		
+
+		server.insert(int_marker, processFeedback)
+
+		server.applyChanges()
+		rospy.spin()
+
+	'''
+	def analyse(self):
+		x_size = None
+		y_size = None
+		max_land_x = 0
+		max_land_y = 0
+		max_interface_x = 0
+		max_interface_y = 0
+		max_x = None
+		max_y = None
+		interface_node_dict = {}
+		interface_x = []
+		interface_y = []
+		ground_node_dict = {}
+		for n in self.node_list:
+			if n.category == 'land':
+				ground_node_dict[(n.x, n.y, n.z)] = n
+				if n.x > max_land_x:
+					max_land_x = n.x
+				if n.y > max_land_y:
+					max_land_y = n.y
+			elif n.category == 'interface':
+				interface_node_dict[(n.x, n.y, n.z)] = n
+				if n.x not in interface_x:
+					interface_x.append(n.x)
+				if n.y not in interface_y:
+					interface_y.append(n.y)
+				if n.x > max_interface_x:
+					max_interface_x = n.x
+				if n.y > max_interface_y:
+					max_interface_y = n.y
+		interface_x = sorted(interface_x)
+		interface_y = sorted(interface_y)
+		x_distances = []
+		y_distances = []
+		for num in range(len(interface_x)-1):
+			x1 = interface_x[num]
+			x2 = interface_x[num + 1]
+			x_distances.append(x2 - x1)
+		for num in range(len(interface_y)-1):
+			y1 = interface_y[num]
+			y2 = interface_y[num + 1]
+			y_distances.append(y2 - y1)
+		x_distances = sorted(x_distances)
+		y_distances = sorted(y_distances)
+		x_size = test_value(x_distances)
+		y_size = test_value(y_distances)
+		print(x_size)
+		print(y_size)
+		if max_interface_x + x_size*.5 >= max_land_x:
+			max_x = max_interface_x
+			print('if')
+		else:
+			print('else')
+			unfound = True
+			num = max_interface_x/float(x_size)
+			while unfound:
+				if (num+.5)*x_size > max_land_x:
+					unfound = False
+					max_x = (num)*x_size
+				num += 1
+
+		if max_interface_y + y_size*.5 >= max_land_y:
+			max_y = max_interface_y
+			print('if')
+		else:
+			print('else')
+			unfound = True
+			num = max_interface_y/float(y_size)
+			while unfound:
+				if (num+.5)*y_size > max_land_y:
+					unfound = False
+					max_y = (num)*y_size
+				num += 1
+		print(max_x)
+		print(max_y)
+
+def test_value(distances):
+	distances = sorted(distances)
+	v = distances[0]
+	denom = 1.0
+	unfound = True
+	while unfound:
+		current_v = v/denom
+		unfound = False
+		for d in distances:
+			if d%current_v != 0:
+				unfound = True
+				break
+		denom += 1
+	return(current_v)
+
+	'''
+
+
+
+
+
+
+
+class building_scape:
+	def __init__(self):
+		t = 1
+
+class tile:
+	def __init__(self, x, y, z):
+		self.x = x
+		self.y = y
+		self.z = z
+
+#ns = node_scape('nodes.csv', 'edges.csv')
+#ns.analyse()
+#ns.construct()
+
+
+
+
+info_dict = {}
+
+def map_maker_client():
+	rospy.wait_for_service('send_map')
+	try:
+		print('calling')
+		global info_dict
+		func = rospy.ServiceProxy('send_map', MapTalk)
+		resp = func()
+		print('recieved')
+		category_list = resp.category_list
+		x_list = resp.x_list
+		y_list = resp.y_list
+		z_list = resp.z_list
+		num_IDs = resp.num_IDs
+		adjacency_array = resp.adjacency_array
+		A = np.array(adjacency_array)
+		A.shape = (num_IDs, num_IDs)
+		for ID in range(num_IDs):
+			x = (x_list[ID] - 100)/100.0
+			y = (y_list[ID] - 100)/100.0
+			z = (z_list[ID] - 100)/100.0
+			c = Category(category_list[ID])
+			info_dict[ID] = ((x, y, z), c)
+		#print(info_dict)
+		ns = node_scape(info_dict, A, num_IDs)
+		ns.construct()
+	except rospy.ServiceException, e:
+		print("service call failed")
+
+
+if __name__ == "__main__":
+	print('test')
+	map_maker_client()
+

@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="cf_num" default="7"/>
+  <arg name="map" default="duckytown_map" />
+
+  <remap from="simple_marker/SimPos_topic" to="simulator/SimPos_topic" />
+
+  <node name="foo" pkg="map_maker" type="make_rviz.sh" output="screen" args="$(arg cf_num)"/>
+  <node name="mapmaker" pkg="map_maker" type="mapmaker.py">
+    <param name="map_road_ratio" value=".75"/>
+    <param name="map_tile_size" value=".5"/>
+    <param name="map_interface_height" value=".75"/>
+    <param name="map_cloud_height" value="1.25"/>
+    <param name="map_num_cloud_layers" value="1"/>
+    <param name="map_cloud_layer_dist" value="2"/>
+    <param name="map_cloud_density" value="3"/>
+    <rosparam command="load" file="$(find map_maker)/config/$(arg map).yaml" />
+  </node>
+  <node name="complex_map" pkg="map_maker" type="complex_map.py">
+  	<param name="ideal_way_point_d" value=".15"/>
+  </node>
+  <node name="simple_marker" pkg="map_maker" type="nodevisualizer.py">
+  	<param name="tilethickness" value=".05"/>
+  	<param name="roadthickness" value=".025"/>
+  	<param name="parking_frac" value="1"/>
+  	<param name="air_node_display" value="False"/>
+  	<param name="waypoint_node_display" value="False"/>
+  </node>
+  <node name="simulator" pkg="map_maker" type="simulator.py">
+  	<param name="air_step_dist" value=".05"/>
+  	<param name="ground_step_dist" value=".025"/>
+  	<param name="delay" value=".1"/>
+  </node>
+  
+  <param name="robot_description" command="$(find map_maker)/urdf/house.urdf"/>
+
+
+  <!-- run rviz -->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find map_maker)/launch/duckietown.rviz" required="true" />
+
+</launch>

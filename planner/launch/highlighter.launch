@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="cf_num" default="1" />
+  <arg name="z_coefficient" default="4"/>
+  <arg name="continuous" default="True" />
+  <arg name="air_vel" default=".5" />
+  <arg name="land_vel" default=".25" />
+
+  <node name="highlighter" pkg="planner" type="highlighter.py" output="screen">
+  	<param name="cf_num" value="$(arg cf_num)"/>
+  	<param name="z_coefficient" value="$(arg z_coefficient)" />
+  	<param name="continuous" value="$(arg continuous)" />
+  	<param name="land_vel" value="$(arg land_vel)" />
+  	<param name="air_vel" value="$(arg air_vel)" />
+  </node>
+
+</launch>

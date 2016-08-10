@@ -1,0 +1,4 @@
+map_num_long: 2
+map_num_wide: 2
+non_fly_list: ['(1, 1)']
+map_pre_dict: {'(0, 1)': ['S'], '(1, 0)': ['W'], '(0, 0)': ['N', 'E'], '(1, 1)': []}

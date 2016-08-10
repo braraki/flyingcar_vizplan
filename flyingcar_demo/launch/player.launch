@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="cf_num" default="1"/>
+  <arg name="z_coefficient" default="3" />
+  <arg name="map" default="collision" />
+  <arg name="planner" default="si_planner" />
+  <arg name="buildings" default="True" />
+  <arg name="continuous" default="True" />
+  <arg name="air_vel" default="1.0" />
+  <arg name="land_vel" default=".25" />
+
+  <remap from="simple_marker/time_path_topic" to="play_path/time_path_topic" />
+  <remap from="simple_marker/Start_SimPos_topic" to="setup/Start_SimPos_topic" />
+  <remap from="simple_marker/SimPos_topic" to="play_pos/SimPos_topic" />
+
+  <include file="$(find map_maker)/launch/visualizer.launch">
+  	<arg name="cf_num" value="$(arg cf_num)" />
+  	<arg name="map" value="$(arg map)" />
+    <arg name="buildings" value="$(arg buildings)" />
+    <arg name="land_vel" value="$(arg land_vel)" />
+    <arg name="air_vel" value="$(arg air_vel)" />
+  </include>
+
+   <include file="$(find map_maker)/launch/non_vis.launch">
+    <arg name="cf_num" value="$(arg cf_num)" />
+    <arg name="map" value="$(arg map)" />
+    <arg name="land_vel" value="$(arg land_vel)" />
+    <arg name="air_vel" value="$(arg air_vel)" />
+    <arg name="time_step" default=".5" />
+    <arg name="optimal" default="True" />
+  </include>
+
+
+  <!--
+  <node name="recorder" pkg="flyingcar_demo" type="recorder.py" output="screen" />
+  -->
+  <!--
+  <node name="record_path" pkg="rosbag" type="record" args="-o $(find flyingcar_demo)/rosbag_files/path.rosbag $(arg planner)/time_path_topic" output="screen" />
+  <node name="record_pos" pkg="rosbag" type="record" args="-o $(find flyingcar_demo)/rosbag_files/poses.rosbag simulator/SimPos_topic" output="screen" />
+  -->
+  <node name="play_path" pkg="rosbag" type="play" args="--clock $(find flyingcar_demo)/rosbag_files/path.rosbag_2016-08-09-10-07-17.bag" output="screen" />
+  <node name="play_pos" pkg="rosbag" type="play" args="--clock $(find flyingcar_demo)/rosbag_files/poses.rosbag_2016-08-09-10-07-17.bag" output="screen" />
+
+</launch>

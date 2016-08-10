@@ -1,0 +1,8 @@
+int32 cf_ID
+---
+int32 start_ID
+int32 end_ID
+
+#send the ID of a cf
+#will respond with a starting and ending node ID for a path
+

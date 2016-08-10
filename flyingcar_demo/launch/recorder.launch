@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="cf_num" default="1" />
+  <arg name="z_coefficient" default="3" />
+  <arg name="map" default="collision" />
+  <arg name="planner" default="si_planner" />
+  <arg name="continuous" default="True" />
+  <arg name="air_vel" default=".5" />
+  <arg name="land_vel" default=".25" />
+
+  <include file="$(find flyingcar_demo)/launch/just_planner.launch">
+    <arg name="cf_num" default="1"/>
+    <arg name="z_coefficient" default="3" />
+    <arg name="map" default="collision" />
+    <arg name="planner" default="si_planner" />
+    <arg name="continuous" default="True" />
+    <arg name="air_vel" default=".5" />
+    <arg name="land_vel" default=".25" />  
+  </include>
+
+
+  <node name="record_path" pkg="rosbag" type="record" args="-o $(find flyingcar_demo)/rosbag_files/path.rosbag $(arg planner)/time_path_topic" output="screen" />
+  <node name="record_pos" pkg="rosbag" type="record" args="-o $(find flyingcar_demo)/rosbag_files/poses.rosbag simulator/SimPos_topic" output="screen" />
+
+</launch>

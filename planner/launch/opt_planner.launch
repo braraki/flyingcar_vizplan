@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="cf_num" default="1" />
+  <arg name="z_coefficient" default="4"/>
+  <arg name="continuous" default="False" />
+  <arg name="air_vel" default=".5" />
+  <arg name="land_vel" default=".25" />
+
+  <node name="opt_planner" pkg="planner" type="opt_planner.py" output="screen">
+  	<param name="cf_num" value="$(arg cf_num)"/>
+  	<param name="z_coefficient" value="$(arg z_coefficient)" />
+  	<param name="continuous" value="$(arg continuous)" />
+  	<param name="land_vel" value=".25" />
+  	<param name="air_vel" value=".5" />
+    <param name="air_buffer_dist" value="0.0" />
+  </node>
+
+  <node name="easy_sg" pkg="planner" type="easy_sg.py"/>
+
+</launch>

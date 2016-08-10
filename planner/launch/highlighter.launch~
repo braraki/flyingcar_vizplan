@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="cf_num" default="1" />
+  <arg name="z_coefficient" default="4"/>
+
+  <node name="highlighter" pkg="planner" type="highlighter.py" output="screen">
+  	<param name="cf_num" value="$(arg cf_num)"/>
+  	<param name="z_coefficient" value="$(arg z_coefficient)" />
+  </node>
+
+</launch>
