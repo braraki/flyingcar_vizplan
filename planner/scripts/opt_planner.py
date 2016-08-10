@@ -452,24 +452,20 @@ class full_system:
 		self.info_dict = info_dict
 		self.num_IDs = len(self.info_dict)
 		self.system_list = []
+		self.paths = []
+		self.times = []
+		self.model_type = 'total_distance'
+		self.planning_time = 0
+		self.time_horizon = 0
 		self.pubTime = rospy.Publisher('~time_path_topic',HiPathTime, queue_size=10)
 		self.runner()
 
-	def runner(self):
-		global nontime_IDs
-
-		planning_start_time = time.time()
-
-		nontime_IDs = self.num_IDs
-
-		model_type = 'total_distance'
+	# get the start/end IDs, the optimal paths, and the min time horizon
+	def get_initial_path_info(self):
 		startend = tuplelist()
 		optimal_paths = []
 		optimal_steps = []
 		min_time_horizon = 0
-
-		print str(time.time()) + " generating costs"
-
 		for cf_ID in range(cf_num):
 			#sys = system(self.adj_array, self.info_dict, cf_ID, self.pubTime)
 			#self.system_list.append(sys)
@@ -483,55 +479,78 @@ class full_system:
 				min_time_horizon = optimal_steps[cf_ID]
 			print "min horizon %d for cf %d" % (min_time_horizon, cf_ID)
 
+		return startend, optimal_paths, min_time_horizon
+
+	def runner(self):
+		global nontime_IDs
+		nontime_IDs = self.num_IDs
+		self.publish_new_paths()
+
+		if continuous:
+			self.continuous_paths()
+
+	def publish_new_paths(self):
+		planning_start_time = time.time()
+		startend, optimal_paths, min_time_horizon = self.get_initial_path_info()
 		optimal_time_paths = self.paths_to_time_paths(optimal_paths)
-
 		true_costs = edge_costs(self.info_dict, self.adj_array)
-
 		print str(time.time()) + " about to convert graph"
-
 		arcs, dists = convert_graph(self.info_dict,A,startend,true_costs,min_time_horizon)
-
 		print str(time.time()) + " converted graph; about to make model"
 
-		m, flow = make_model(arcs, dists, startend, self.num_IDs*(min_time_horizon+1),model_type,optimal_time_paths,min_time_horizon,self.adj_array)
-
-
+		m, flow = make_model(arcs, dists, startend, self.num_IDs*(min_time_horizon+1),self.model_type,optimal_time_paths,min_time_horizon,self.adj_array)
 
 		m.optimize()
 
 		print str(time.time()) + " optimization finished"
 
-		time_horizon = min_time_horizon
-
-		while m.status != GRB.Status.OPTIMAL and time_horizon < 2*min_time_horizon*cf_num:
-			time_horizon = time_horizon + 1
-			arcs, dists = convert_graph(self.info_dict,A,startend,true_costs,time_horizon)
-			m, flow = make_model(arcs, dists, startend, self.num_IDs*(time_horizon+1),model_type,optimal_time_paths,time_horizon,self.adj_array)
+		self.time_horizon = min_time_horizon
+		while m.status != GRB.Status.OPTIMAL and self.time_horizon < 2*min_time_horizon*cf_num:
+			self.time_horizon = self.time_horizon + 1
+			arcs, dists = convert_graph(self.info_dict,A,startend,true_costs,self.time_horizon)
+			m, flow = make_model(arcs, dists, startend, self.num_IDs*(self.time_horizon+1),self.model_type,optimal_time_paths,self.time_horizon,self.adj_array)
 			m.optimize()
 
-		# Print solution
 		if m.status == GRB.Status.OPTIMAL:
 			planning_end_time = time.time()
-			planning_time = planning_start_time - planning_end_time
-
-			print "TIME HORIZON: %d" % (time_horizon)
+			self.planning_time = planning_start_time - planning_end_time
 			solution = m.getAttr('x', flow)
-			for h in range(cf_num):
-				print('\nOptimal flows for %s:' % h)
-				for i,j in arcs:
-					if solution[h,i,j] > 0:
-						print('%s -> %s: %g' % (i, j, solution[h,i,j]))
 
-			paths,times = self.extract_paths(solution, arcs)
+			self.print_solution(m, solution, flow, arcs)
+			self.paths,self.times = self.extract_paths(solution, arcs)
+
 			for cf in range(cf_num):
 				print "PUBLISHING PATH"
-				print cf, paths[cf]
+				print cf, self.paths[cf]
 				#print times[cf]
-				self.pubTime.publish(cf_num,cf,paths[cf],times[cf],planning_time)
-			while not rospy.is_shutdown():
-				for cf in range(cf_num):
-					self.pubTime.publish(cf_num,cf,paths[cf],times[cf],planning_time)
-				time.sleep(0.1)
+				self.pubTime.publish(cf_num,cf,self.paths[cf],self.times[cf],self.planning_time)
+
+	def publish_old_paths(self):
+		for cf in range(cf_num):
+			if self.paths[cf] != None and self.paths[cf] != []:
+				self.pubTime.publish(cf_num, cf, self.paths[cf], self.times[cf], self.planning_time)
+
+
+	def continuous_paths(self):
+		while not rospy.is_shutdown():
+			if self.is_finished():
+				self.publish_new_paths()
+			else:
+				self.publish_old_paths()
+			time.sleep(0.1)
+
+	def is_finished(self):
+		t = time.time()
+		last_time = self.times[0][len(self.times[0]) - 1]
+		return(t > last_time)
+
+	def print_solution(self, m, solution, flow, arcs):
+		print "TIME HORIZON: %d" % (self.time_horizon)
+		for h in range(cf_num):
+			print('\nOptimal flows for %s:' % h)
+			for i,j in arcs:
+				if solution[h,i,j] > 0:
+					print('%s -> %s: %g' % (i, j, solution[h,i,j]))
 
 	def extract_paths(self,solution,arcs):
 		paths = {}
