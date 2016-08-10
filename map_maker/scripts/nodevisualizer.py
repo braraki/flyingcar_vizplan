@@ -37,7 +37,6 @@ parking_frac = float(rospy.get_param('/simple_marker/parking_frac'))
 air_node_display = bool(rospy.get_param('/simple_marker/air_node_display'))
 waypoint_node_display = bool(rospy.get_param('/simple_marker/waypoint_node_display'))
 buildings = str(rospy.get_param('/simple_marker/buildings'))
-display_frequency = int(rospy.get_param('/simple_marker/display_frequency'))
 if buildings == 'True':
 	buildings = True
 else:
@@ -323,23 +322,22 @@ class building_scape:
 	#using reps to smooth out motion
 	def pos_respond(self, data):
 		global reps
-		if reps%display_frequency == 0:
-			if len(self.crazyflie_list) != len(data.x):
-				self.cf_num = len(data.x)
-				self.crazyflie_list = [None]*self.cf_num
-				for cf_ID in range(len(data.x)):
-					cf = crazyflie(cf_ID, [], self.server, self.node_scape)
-					self.crazyflie_list[cf_ID] = cf
-			for index in range(len(data.x)):
-				x = data.x[index]
-				y = data.y[index]
-				z = data.z[index]
-				print((x,y,z))
-				if self.crazyflie_list[index] != None:
-					cf = self.crazyflie_list[index]
-					cf.update_flie((x,y,z))
-					cf.construct_flie(False)
-			self.server.applyChanges()
+		if len(self.crazyflie_list) != len(data.x):
+			self.cf_num = len(data.x)
+			self.crazyflie_list = [None]*self.cf_num
+			for cf_ID in range(len(data.x)):
+				cf = crazyflie(cf_ID, [], self.server, self.node_scape)
+				self.crazyflie_list[cf_ID] = cf
+		for index in range(len(data.x)):
+			x = data.x[index]
+			y = data.y[index]
+			z = data.z[index]
+			print((x,y,z))
+			if self.crazyflie_list[index] != None:
+				cf = self.crazyflie_list[index]
+				cf.update_flie((x,y,z))
+				cf.construct_flie(False)
+		self.server.applyChanges()
 		reps += 1
 	'''
 	def fluid_construct(self):
