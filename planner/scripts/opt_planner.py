@@ -489,6 +489,23 @@ class full_system:
 		if continuous:
 			self.continuous_paths()
 
+	def update_model(self, m, old_startend, old_time_horizon, arcs):
+		# remove old loopback arcs
+
+
+
+		# add capacity constraint on each loopback arc
+		# aka, only robot i can pass through loopback arc i
+		# CRAZYFLIE NUM MUST CORRESPOND TO LOOPBACK ARC NUM
+		for i in range(len(old_startend)):
+			s, e = startend
+			for cf in range(cf_num):
+				if cf != i:
+					#print cf, s, e
+					m.addConstr(flow[cf,s,e] == 0,
+						'loopback_cap_%s_%s' % (s,e))
+
+
 	def publish_new_paths(self):
 		planning_start_time = time.time()
 		startend, optimal_paths, min_time_horizon = self.get_initial_path_info()
