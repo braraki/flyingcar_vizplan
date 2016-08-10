@@ -197,7 +197,7 @@ class sender:
 	def info_sender(self):
 		s = rospy.Service('send_complex_map', MapTalk ,self.response)
 		print('ready to send info back')
-		rospy.spin()
+		#rospy.spin()
 '''
 def map_maker_client():
 	rospy.wait_for_service('send_map')
@@ -242,3 +242,4 @@ if __name__ == "__main__":
 	s = sender(analysis[0], analysis[1], mark_x, mark_y)
 	#s = sender(info_dict, A)
 	s.info_sender()
+	rospy.spin()

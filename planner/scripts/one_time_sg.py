@@ -50,7 +50,7 @@ def response(req):
 def info_sender():
 	s = rospy.Service('send_situation', situation, response)
 	print('ready to send info back')
-	rospy.spin()
+	#rospy.spin()
 
 def map_maker_client():
 	global park_dict
@@ -84,3 +84,4 @@ if __name__ == "__main__":
 	rospy.init_node('one_time_sit_gen')
 	print('test')
 	map_maker_client()
+	rospy.spin()

@@ -109,7 +109,7 @@ def response(req):
 def info_sender():
 	s = rospy.Service('send_situation', situation, response)
 	#print('ready to send info back')
-	rospy.spin()
+	#rospy.spin()
 '''
 def map_maker_client():
 	global park_dict
@@ -157,4 +157,4 @@ if __name__ == "__main__":
 			park_dict[ID] = info_dict[ID][0]
 	rospy.Subscriber('~StartingID_topic', setup_IDs, setup_situation)
 	info_sender()
-
+	rospy.spin()
