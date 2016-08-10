@@ -8,7 +8,6 @@ import numpy as np
 from map_maker import gen_adj_array_info_dict
 
 #imported parameters
-
 map_road_ratio = float(rospy.get_param('/mapmaker/map_road_ratio'))
 map_tile_size = float(rospy.get_param('/mapmaker/map_tile_size'))
 
@@ -23,15 +22,11 @@ air_vel = float(rospy.get_param('/complex_map/air_vel'))
 time_step = float(rospy.get_param('/complex_map/time_step'))
 optimal = bool(rospy.get_param('/complex_map/optimal'))
 
-
-
-
 #imported map parameters
 map_num_long = int(rospy.get_param('/mapmaker/map_num_long'))
 map_num_wide = int(rospy.get_param('/mapmaker/map_num_wide'))
 non_fly_list = rospy.get_param('/mapmaker/non_fly_list')
 map_pre_dict = rospy.get_param('/mapmaker/map_pre_dict')
-
 
 #converts strings to tuples
 for k in map_pre_dict.keys():
@@ -400,7 +395,7 @@ class landscape:
 				t = self.tile_dict[co]
 				self.cross_tile_connect_node(tile1, t)
 
-	#assigns IDs to the nodes, done without any particular order/pattern (there may be a pattern, but its not intended)
+	#assigns IDs to the nodes, done based first on lowest z, then lowest y, then lowest x
 	def assign_ID(self):
 		num = 0
 		all_nodes = []
@@ -527,6 +522,7 @@ class cloud:
 		else:
 			self.opt_generate_nodes()
 
+	#generates nodes when non optimal
 	def non_opt_generate_nodes(self):
 		for t in self.landscape.tile_dict.values():
 			if t.flyable:
@@ -564,7 +560,6 @@ class cloud:
 		num_max_x = int(-1*min_x / grid_dist)
 		num_min_y = int(min_y / grid_dist)
 		num_max_y = int(-1*min_y / grid_dist)
-		#print((num_min_x, num_max_x, num_min_y, num_max_y))
 
 		current_layer = 0
 
@@ -575,10 +570,6 @@ class cloud:
 				x = x_multiple*grid_dist
 				y_multiple = num_min_y
 				while y_multiple <= num_max_y:
-					#print('current_layer: '+str(current_layer))
-					#print('x: '+str(x_multiple))
-					#print('y: '+str(y_multiple))
-					#print(" ")
 					y = y_multiple*grid_dist
 					for t in self.landscape.tile_dict.values():
 						if t.is_contained(x, y):
@@ -643,10 +634,8 @@ class cloud:
 
 	#connects nodes when optimal
 	def opt_connect_own(self):
-
 		air_way_point_d = air_vel*(time_step)
 		grid_dist = (2.0/float(1 + (2.0)**.5))*air_way_point_d
-
 		for n1 in self.node_dict.values():
 			(x1, y1, z1) = (n1.x, n1.y, n1.z)
 			if n1 in self.multi_connect:
@@ -711,10 +700,8 @@ def node_plot(node_list, edge_list):
 		n1 = ID_dict[e.node1_ID]
 		n2 = ID_dict[e.node2_ID]
 		if n1[2] == 0 and n2[2] == 0:
-			n1x = n1[0]
-			n1y = n1[1]
-			n2x = n2[0]
-			n2y = n2[1]
+			(n1x, n1y) = n1
+			(n2x, n2y) = n2
 			ax.arrow(n1x, n1y, n2x - n1x, n2y - n1y, head_width = .15, head_length = .35)
 	plt.show()
 
@@ -735,27 +722,9 @@ for co in map_pre_dict.keys():
 	map_dict[co] = t
 
 final_map = landscape(map_num_long, map_num_wide, map_dict)
-
 final_map.generate_interface_and_cloud(map_interface_height, map_cloud_height, map_num_cloud_layers, map_cloud_layer_dist, map_cloud_density)
-
 return_nodes = final_map.get_nodes_and_edges()
 (mark_x, mark_y) = final_map.get_mark_list()
-#building csv files, no longer necessary, but I like it
-ID_dict = {}
-category_dict = {}
-
-num_parking = 0
-#num_mark = 0
-num_land = 0
-num_interface = 0
-num_cloud = 0
-for n in return_nodes:
-	x = n.x
-	y = n.y
-	z = n.z
-	ID = n.ID
-	ID_dict[ID] = (x,y,z)
-	category_dict[ID] = n.category
 
 #networkx
 G = nx.DiGraph()
@@ -771,22 +740,15 @@ A4 = A3[0]
 A5 = []
 for fl in A4:
 	A5.append(int(fl))
-#print(A5)
 
-coordinate_list = [None]*len(ID_dict)
-x_list = [None]*len(ID_dict)
-y_list = [None]*len(ID_dict)
-z_list = [None]*len(ID_dict)
-category_list = [None]*len(ID_dict)
-for ID in ID_dict:
-	coor = ID_dict[ID]
-	coordinate_list[ID] = coor
-	x_list[ID] = coor[0]
-	y_list[ID] = coor[1]
-	z_list[ID] = coor[2]
-	cat = category_dict[ID]
-	category_list[ID] = int(cat)
-num_nodes = len(ID_dict)
+num_nodes = len(return_nodes)
+x_list = [None]*num_nodes
+y_list = [None]*num_nodes
+z_list = [None]*num_nodes
+category_list = [None]*num_nodes
+for n in return_nodes:
+	(x_list[n.ID], y_list[n.ID], z_list[n.ID]) = (n.x, n.y, n.z)
+	category_list[n.ID] = n.category
 
 def response(req):
 	return MapTalkResponse(category_list, x_list, y_list, z_list, num_nodes, A5, mark_x, mark_y)
