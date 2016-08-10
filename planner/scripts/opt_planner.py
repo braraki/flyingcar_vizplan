@@ -2,6 +2,7 @@
 
 import rospy
 from std_msgs.msg import String
+from std_msgs.msg import Bool
 from map_maker.srv import *
 from map_maker.msg import *
 from planner.srv import *
@@ -547,7 +548,7 @@ class full_system:
 			time_adjusted_path = self.time_adjust(ordered_path)
 			paths[cf] = time_adjusted_path
 			current_time = time.time()
-			times[cf] = [planner_timestep*x for x in range(0,len(paths[cf]))]
+			times[cf] = [current_time + planner_timestep*x for x in range(0,len(paths[cf]))]
 		return paths,times
 
 	def order_path(self,path,node):
@@ -591,8 +592,19 @@ class full_system:
 				t = 1
 				#print("service call failed")
 
+def waiter(info_dict, A):
+	def start(data):
+		print('started!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+		fs = full_system(info_dict, A)
+
+	#wait for setup to tell you to go
+	rospy.Subscriber('~Starter', Bool, start)
+
+	rospy.spin()
+
 if __name__ == "__main__":
 	rospy.init_node('opt_planner', anonymous = True)
 	(info_dict, A) = gen_adj_array_info_dict.map_maker_client('send_complex_map')
 	Category = gen_adj_array_info_dict.Category
-	fs = full_system(info_dict, A)
+	waiter(info_dict, A)
+	#fs = full_system(info_dict, A)

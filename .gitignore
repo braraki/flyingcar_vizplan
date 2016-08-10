@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+**/duckietown.rviz
+
 # C extensions
 *.so
 
