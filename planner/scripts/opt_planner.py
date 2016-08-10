@@ -528,7 +528,7 @@ class full_system:
 				print cf, paths[cf]
 				#print times[cf]
 				self.pubTime.publish(cf_num,cf,paths[cf],times[cf],planning_time)
-			while True:
+			while not rospy.is_shutdown():
 				for cf in range(cf_num):
 					self.pubTime.publish(cf_num,cf,paths[cf],times[cf],planning_time)
 				time.sleep(0.1)

@@ -230,7 +230,7 @@ class node_scape:
 		server.insert(int_marker, processFeedback)
 
 		server.applyChanges()
-		rospy.spin()
+		#rospy.spin()
 
 class building_scape:
 	def __init__(self, node_scape, mark_x, mark_y):
@@ -391,14 +391,18 @@ class building_scape:
 			t_int_marker = t.construct(t_int_marker)
 		thread.start_new_thread(self.construct_2, (n_int_marker, e_int_marker, t_int_marker))
 		#self.construct_2(n_int_marker, e_int_marker, t_int_marker)
+		
 		time.sleep(1000000000)
+
 		
 	def construct_2(self, im1, im2, im3):
-		self.server.insert(im1, processFeedback)
-		self.server.insert(im2, processFeedback)
-		self.server.insert(im3, processFeedback)
-		self.server.applyChanges()
-		rospy.spin()
+		while not rospy.is_shutdown():
+			self.server.insert(im1, processFeedback)
+			self.server.insert(im2, processFeedback)
+			self.server.insert(im3, processFeedback)
+			self.server.applyChanges()
+			rospy.sleep(0.1)
+		#rospy.spin()
 
 class crazyflie:
 	def __init__(self, ID, path, server, node_scape):
@@ -786,7 +790,7 @@ class house:
 		house_ID += 1
 
 	def construct(self):
-		while True:
+		while not rospy.is_shutdown():
 			self.broadcaster.sendTransform((self.x, self.y, self.z - roadthickness),
 				tf.transformations.quaternion_from_euler(0, 0, self.theta), rospy.Time.now(), "house"+str(self.ID)+"/whole", "base_link")
 			time.sleep(.1)
@@ -859,3 +863,4 @@ if __name__ == "__main__":
 	bs = building_scape(ns, mark_x, mark_y)
 	bs.build_tiles()
 	bs.construct()
+	rospy.spin()

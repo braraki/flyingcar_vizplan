@@ -590,7 +590,7 @@ class full_system:
 	#publishes new path when it is necessary
 	#is really doing what runner is supposed to do
 	def double_check(self):
-		while True:
+		while not rospy.is_shutdown():
 			for sys in self.system_list:
 				if sys.running:
 					if sys.is_finished() and continuous:
