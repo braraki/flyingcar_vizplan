@@ -391,15 +391,18 @@ class building_scape:
 			t_int_marker = t.construct(t_int_marker)
 		thread.start_new_thread(self.construct_2, (n_int_marker, e_int_marker, t_int_marker))
 		#self.construct_2(n_int_marker, e_int_marker, t_int_marker)
-		
-		time.sleep(1000000000)
 
 		
 	def construct_2(self, im1, im2, im3):
+		self.server.insert(im1, processFeedback)
+		self.server.insert(im2, processFeedback)
+		self.server.insert(im3, processFeedback)
 		while not rospy.is_shutdown():
+			'''
 			self.server.insert(im1, processFeedback)
 			self.server.insert(im2, processFeedback)
 			self.server.insert(im3, processFeedback)
+			'''
 			self.server.applyChanges()
 			rospy.sleep(0.1)
 		#rospy.spin()
@@ -466,6 +469,7 @@ class crazyflie:
 
 		self.server.applyChanges()
 
+
 	#updates path and removes waypoints
 	def update_path(self, path):
 		if path != self.path:
@@ -475,10 +479,10 @@ class crazyflie:
 					self.path.append(id)
 			self.construct_path()
 
+
 	def construct_flie(self, apply_changes = True):
 		self.broadcaster.sendTransform((self.position[0], self.position[1], self.position[2]+.025),
 			tf.transformations.quaternion_from_euler(0, 0, 0), rospy.Time.now(), "crazy_flie"+str(self.ID)+"/base_link", "base_link")
-		
 		if True:
 			self.int_marker3 = InteractiveMarker()
 			self.int_marker3.header.frame_id = "base_link"

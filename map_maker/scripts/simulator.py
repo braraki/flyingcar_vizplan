@@ -26,6 +26,9 @@ from map_maker import gen_adj_array_info_dict
 #arguments
 
 delay = float(rospy.get_param('/simulator/delay'))
+delay_2 = 1
+while delay_2 > delay:
+	delay_2 *= .1
 
 current_time = 0.0
 '''
@@ -90,9 +93,9 @@ def analyse(p, times, info_dict):
 	'''
 	spots = {}
 	last_ID = 0
-	last_time = int(times[0]/float(delay))*float(delay)
+	last_time = int(times[0]/float(delay_2))*float(delay_2)
 	current_time = round(last_time, 2)
-	end_time = int(times[len(times)-1]/float(delay))*float(delay)
+	end_time = int(times[len(times)-1]/float(delay_2))*float(delay_2)
 	while current_time <= end_time:
 		if True:#last_ID < len(times) - 1:
 			if current_time > times[last_ID+1]:
@@ -108,7 +111,7 @@ def analyse(p, times, info_dict):
 		y = frac*(y2 - y1) + y1
 		z = frac*(z2 - z1) + z1
 		spots[current_time] = (x, y, z)
-		current_time += delay
+		current_time += delay_2
 		current_time = round(current_time, 2)
 	#print(sorted(spots.keys()))
 	return(spots)
@@ -184,6 +187,7 @@ class full_system:
 		self.y_list = []
 		self.z_list = []
 		self.cf_num = None
+		self.running = False
 
 	def runner(self):
 		rospy.Subscriber('~time_path_topic', HiPathTime, self.act)
@@ -203,6 +207,7 @@ class full_system:
 
 	#sends constant position messages (thread)
 	def sub_run(self):
+		self.running = True
 		global current_time
 		rate = rospy.Rate(1/float(delay))
 		start_time = time.time()
@@ -239,8 +244,7 @@ class full_system:
 				#print(current_time)
 				current_time += delay
 				reps += 1
-
-			rospy.sleep(0.1)
+			#time.sleep(.1)
 
 	#path info for a crazyflies first path
 	def collect_info(self, data):
@@ -254,6 +258,8 @@ class full_system:
 		self.system_list[data.ID] = sys
 		if None not in self.system_list:
 			self.go = True
+			if not self.running:
+				thread.start_new_thread( self.sub_run, ())
 			#self.sub_run()
 			#thread.start_new_thread ( self.sub_run , ())
 			#print('thread initialized')
@@ -264,7 +270,8 @@ class full_system:
 		self.y_list = list(data.y)
 		self.z_list = list(data.z)
 		self.system_list = [None]*self.cf_num
-		thread.start_new_thread( self.sub_run, ())
+		if not self.running:
+			thread.start_new_thread( self.sub_run, ())
 '''
 
 def map_maker_client():

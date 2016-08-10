@@ -51,10 +51,10 @@
     <param name="air_node_display" value="True"/>
     <param name="waypoint_node_display" value="True"/>
     <param name="buildings" value="$(arg buildings)"/>
-    <param name="display_frequency" value="4"/>
+    <param name="display_frequency" value="1"/>
   </node>
   <node name="simulator" pkg="map_maker" type="simulator.py" output="screen">
-    <param name="delay" value=".01"/>
+    <param name="delay" value=".05"/>
   </node>
 
   <param name="robot_description" command="$(find xacro)/xacro '$(find map_maker)/urdf/crazyflie2.urdf.xacro'"/>
