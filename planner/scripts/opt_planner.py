@@ -215,7 +215,7 @@ def convert_graph(old_graph, old_adj, startend, true_costs, time_horizon):
 	# at the last time step
 	for start, end in startend:
 		arcs.append((end+th*num_IDs,start))
-		print end+th*num_IDs, start
+		print end, start
 
 
 	for ID in range(num_IDs):
@@ -489,21 +489,117 @@ class full_system:
 		if continuous:
 			self.continuous_paths()
 
-	def update_model(self, m, old_startend, old_time_horizon, arcs):
-		# remove old loopback arcs
+	def update_model(self, m, startend, time_horizon, old_startend, old_time_horizon, arcs, costs,true_costs):
 
-
-
-		# add capacity constraint on each loopback arc
-		# aka, only robot i can pass through loopback arc i
-		# CRAZYFLIE NUM MUST CORRESPOND TO LOOPBACK ARC NUM
+		# remove old loopback arc constraints and loopback arcs
+		# and replace with new constraints and arcs
 		for i in range(len(old_startend)):
-			s, e = startend
+			s, e = arcs[i]
 			for cf in range(cf_num):
 				if cf != i:
-					#print cf, s, e
-					m.addConstr(flow[cf,s,e] == 0,
-						'loopback_cap_%s_%s' % (s,e))
+					m.remove(flow[cf,s,e])
+					flow.pop((cf,s,e))
+					arcs.pop(i)
+		for i in range(len(startend)):
+			start = startend[i][0]
+			end = startend[i][1] + (time_horizon)*nontime_IDs
+			arcs.insert(i, (end,start))
+			for cf in range(cf_num):
+				if cf != i:
+					m.addConstr(flow[cf,end,start] == 0,
+						'loopback_ca_%s_%s' % (s,e))
+
+		m.update()
+
+		update_graph(arcs,costs,time_horizon,old_time_horizon,true_costs)
+
+	def update_graph(self,arcs,costs,startend,time_horizon,old_startend,old_time_horizon,true_costs):
+
+		if time_horizon > old_time_horizon:
+			costs = self.update_graph_update_old_startend_costs(costs,old_startend,old_time_horizon,true_costs)
+			arcs, costs = self.update_graph_add_nodes(arcs,costs,startend,time_horizon,old_time_horizon,true_costs)
+		elif time_horizon < old_time_horizon:
+			arcs, costs = self.update_graph_remove_nodes(arcs,costs,startend,time_horizon,old_time_horizon,true_costs)
+
+	def update_graph_update_old_startend_costs(self,costs,old_startend,old_time_horizon,true_costs):
+		for cf in range(len(old_startend)):
+			i, j = old_startend[cf]
+			start = i
+			end_before = j + nontime_IDs*(old_time_horizon-1)
+			end = j + nontime_IDs*old_time_horizon
+			# cover the 'waiting at the goal' state
+			if costs[cf,end_before,end] == 0:
+				costs[(cf,end_before,end)] = true_costs[(j,j)]
+
+			predecessor_matrix = self.adj_array.transpose()
+			predecessors = predecessor_matrix[end]
+			for (ID,value) in predecessors:
+				if value == 1 and ID != j:
+					end_pred = ID + (old_time_horizon-1)*nontime_IDs
+					if costs[cf,end_pred,end] == 0:
+						costs[cf,end_pred,end] = true_costs[(ID,j)]
+
+		return costs
+			
+	def update_graph_remove_nodes(self,arcs,costs,startend,time_horizon,old_startend,old_time_horizon,true_costs):
+		for ID in range(nontime_IDs):
+			# need to connect ID+timestep*num_IDs to ID+(timestep+1)*num_IDs
+			for timestep in range(time_horizon,old_time_horizon):
+				current_state = ID+timestep*num_IDs
+				next_state = ID+(timestep+1)*num_IDs
+				#na[(current_state, next_state)] = 1
+				arcs.remove((current_state, next_state))
+				# costs are structured so that each robot/edge combo has
+				# a unique cost. This should allow us to adjust cost based
+				# on robot-specific data such as battery voltage
+				for cf in range(cf_num):
+					costs.remove((cf,current_state,next_state))
+
+				# need to find successors of ID (sID) and connect
+				# ID+timestep*num_IDs to sID+(timestep+1)*num_IDs
+				old_row = self.adj_array[ID]
+				for (ID2, value) in enumerate(old_row):
+					if value == 1 and ID2 != ID:
+						# ID2 is a successor
+						next_neighbor = ID2+(timestep+1)*num_IDs
+						#na[(current_state, next_neighbor)] = 1
+						arcs.remove((current_state, next_neighbor))
+
+						for cf in range(cf_num):
+							costs.remove((cf,current_state, next_neighbor))
+		return arcs, costs
+
+	def update_graph_add_nodes(self,arcs,costs,startend,time_horizon,old_time_horizon,true_costs):
+		for ID in range(nontime_IDs):
+			# need to connect ID+timestep*num_IDs to ID+(timestep+1)*num_IDs
+			for timestep in range(old_time_horizon,time_horizon):
+				current_state = ID+timestep*num_IDs
+				next_state = ID+(timestep+1)*num_IDs
+				#na[(current_state, next_state)] = 1
+				arcs.append((current_state, next_state))
+				# costs are structured so that each robot/edge combo has
+				# a unique cost. This should allow us to adjust cost based
+				# on robot-specific data such as battery voltage
+				for cf in range(cf_num):
+					costs[(cf,current_state,next_state)] = true_costs[(ID,ID)]
+					if ID == startend[cf][1]:
+						costs[(cf,current_state,next_state)] = 0
+
+				# need to find successors of ID (sID) and connect
+				# ID+timestep*num_IDs to sID+(timestep+1)*num_IDs
+				old_row = self.adj_array[ID]
+				for (ID2, value) in enumerate(old_row):
+					if value == 1 and ID2 != ID:
+						# ID2 is a successor
+						next_neighbor = ID2+(timestep+1)*num_IDs
+						#na[(current_state, next_neighbor)] = 1
+						arcs.append((current_state, next_neighbor))
+
+						for cf in range(cf_num):
+							costs[(cf,current_state, next_neighbor)] = true_costs[(ID,ID2)]
+							if ID2 == startend[cf][1]:
+								costs[(cf,current_state,next_neighbor)] = 0
+		return arcs, costs
 
 
 	def publish_new_paths(self):
@@ -522,7 +618,7 @@ class full_system:
 		print str(time.time()) + " optimization finished"
 
 		self.time_horizon = min_time_horizon
-		while m.status != GRB.Status.OPTIMAL and self.time_horizon < 2*min_time_horizon*cf_num:
+		while m.status != GRB.Status.OPTIMAL and self.time_horizon < 2*min_time_horizon*cf_num and not rospy.is_shutdown():
 			self.time_horizon = self.time_horizon + 1
 			arcs, dists = convert_graph(self.info_dict,A,startend,true_costs,self.time_horizon)
 			m, flow = make_model(arcs, dists, startend, self.num_IDs*(self.time_horizon+1),self.model_type,optimal_time_paths,self.time_horizon,self.adj_array)
@@ -640,7 +736,6 @@ def waiter(info_dict, A):
 if __name__ == "__main__":
 	rospy.init_node('opt_planner', anonymous = True)
 	(info_dict, A) = gen_adj_array_info_dict.map_maker_client('send_complex_map')
-	print info_dict
 	Category = gen_adj_array_info_dict.Category
 	waiter(info_dict, A)
 	#fs = full_system(info_dict, A)
