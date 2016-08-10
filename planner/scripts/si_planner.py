@@ -117,7 +117,7 @@ def a_star(info_dict, successors, start_state, start_voltage, goal_test, heurist
 		#print(reps)
 		parent = agenda.pop()
 		cont = False
-
+		
 		if (parent.state, parent.interval) not in cost_expanded:
 			cost_expanded[(parent.state, parent.interval)] = parent.cost
 			cont = True
@@ -136,19 +136,15 @@ def a_star(info_dict, successors, start_state, start_voltage, goal_test, heurist
 			cont = True
 		else:
 			kepts = kept_expanded[(parent.state, parent.interval)]
-			projected_costs = []
+			keep = True
 			for (t, c) in kepts:
 				if t < parent.time:
 					elapsed_time = parent.time - t
 					used_energy = planner_helper.get_wait_energy(info_dict, parent.state, elapsed_time)
 					projected_cost = c + planner_helper.get_cost(used_energy, elapsed_time)
-					projected_costs.append(projected_cost)
-			keep = True
-			for pc in projected_costs:
-				if pc < c:
-					keep = False
-					#print('not kept')
-					break
+					if projected_cost < c:
+						keep = False
+						break
 			if keep:
 				kept_expanded[(parent.state, parent.interval)] += [(parent.time, parent.cost)]
 				cont = True
@@ -164,8 +160,34 @@ def a_star(info_dict, successors, start_state, start_voltage, goal_test, heurist
 				return (parent.path(), parent.voltage)
 			for child_state, t, v, cost, interval in successors(parent.state, parent.time, parent.voltage, parent.interval):
 				ID = child_state
-				child = SearchNode(child_state, parent, t, v, parent.cost+cost, interval)
-				agenda.push(child, child.cost+heuristic(child_state))
+
+				keep = False
+				if (child_state, interval) not in cost_expanded:
+					keep = True
+				elif cost_expanded[(child_state, interval)] > cost:
+					keep = True
+				if (child_state, interval) not in time_expanded:
+					keep = True
+				elif time_expanded[(child_state, interval)] > t:
+					keep = True
+				'''
+				keep = True
+				if (child_state, interval) in kept_expanded:
+					kepts = kept_expanded[(child_state, interval)]
+					for (kt, kc) in kepts:
+						if kt < t:
+							elapsed_time = t - kt
+							used_energy = planner_helper.get_wait_energy(info_dict, child_state, elapsed_time)
+							projected_cost = kc + planner_helper.get_cost(used_energy, elapsed_time)
+							if projected_cost < cost:
+								keep = False
+								break
+				'''
+				if keep:
+					child = SearchNode(child_state, parent, t, v, parent.cost+cost, interval)
+					agenda.push(child, child.cost+heuristic(child_state))
+
+
 
 	print('reps')
 	print(reps)
@@ -260,7 +282,7 @@ class system:
 		self.p = None
 		self.times = []
 		self.planning_time = None
-		self.voltage = 10
+		self.voltage = 1000
 		self.running = True
 
 	def generate_random_path(self):

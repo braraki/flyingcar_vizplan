@@ -47,8 +47,10 @@ def get_remaining():
 	finishers = []
 	for cf in in_use:
 		v = in_use[cf]
-		starters.append(v[0])
-		finishers.append(v[1])
+		if v[0] != None:
+			starters.append(v[0])
+		if v[1] != None:
+			finishers.append(v[1])
 	true_remains = []
 	not_start = []
 	not_fin = []
@@ -140,7 +142,7 @@ def setup_situation(data):
 	global in_use
 	starting_IDs = data.starting_IDs
 	for index in range(len(starting_IDs)):
-		in_use[index] = (starting_IDs[index], starting_IDs[index])
+		in_use[index] = (None, starting_IDs[index])
 
 
 if __name__ == "__main__":
