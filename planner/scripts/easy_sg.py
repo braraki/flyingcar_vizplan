@@ -40,18 +40,15 @@ park_dict = {}
 
 in_use = {}
 
-def get_remaining(cf_ID):
+def get_remaining():
 	global park_dict
 	global in_use
 	starters = []
 	finishers = []
 	for cf in in_use:
 		v = in_use[cf]
-		if cf == cf_ID:
-			starters.append(v[1])
-		else:
-			starters.append(v[0])
-			finishers.append(v[1])
+		starters.append(v[0])
+		finishers.append(v[1])
 	true_remains = []
 	not_start = []
 	not_fin = []
@@ -83,7 +80,7 @@ def select_ID(true_remains, not_start, not_fin, start=False):
 def generate_spots(cf_ID):
 	global park_dict
 	global in_use
-	(true_remains, not_start, not_fin) = get_remaining(cf_ID)
+	(true_remains, not_start, not_fin) = get_remaining()
 	if cf_ID in in_use:
 		spots = in_use[cf_ID]
 		start = spots[1]
