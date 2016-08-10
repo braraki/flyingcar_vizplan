@@ -600,11 +600,12 @@ def waiter(info_dict, A):
 	#wait for setup to tell you to go
 	rospy.Subscriber('~Starter', Bool, start)
 
-	rospy.spin()
 
 if __name__ == "__main__":
 	rospy.init_node('opt_planner', anonymous = True)
 	(info_dict, A) = gen_adj_array_info_dict.map_maker_client('send_complex_map')
+	print info_dict
 	Category = gen_adj_array_info_dict.Category
 	waiter(info_dict, A)
 	#fs = full_system(info_dict, A)
+	rospy.spin()
