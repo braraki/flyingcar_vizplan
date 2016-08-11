@@ -19,7 +19,7 @@
     <param name="air_buffer_dist" value=".5" />
   </node>
 
-  <node name="opt_sg" pkg="planner" type="opt_sg.py"/>
+  <node name="opt_sg" pkg="planner" type="opt_sg.py" />
 
   <node name="setup" pkg="planner" type="setup.py" output="screen">
     <param name="cf_num" value="$(arg cf_num)" />

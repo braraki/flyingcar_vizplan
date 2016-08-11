@@ -59,8 +59,8 @@ class system:
 		self.fly_dict = {}
 
 	def response(self, req):
-		self.update_path(self, req.cf_ID)
-		(start_ID, end_ID) = self.get_path(self.cf_ID)
+		self.update_path(req.cf_ID)
+		(start_ID, end_ID) = self.get_path(req.cf_ID)
 		return situationResponse(start_ID, end_ID)
 
 	def update_path(self, cf_ID):
@@ -68,13 +68,14 @@ class system:
 		off_limits = []
 		allowed_IDs = park_dict.keys()
 		if f.num_paths == 0:
+			print('why am i here')
 			starts = allowed_IDs[:]
 			ends = allowed_IDs[:]
 			for f2 in self.fly_dict.values():
 				if f2.start in starts:
 					starts.remove(f2.start)
 				if f2.end in ends:
-					ends(f2.end)
+					ends.remove(f2.end)
 			start = random.choice(starts)
 			end = random.choice(ends)
 			f.set_first_path(start, end)
@@ -85,10 +86,12 @@ class system:
 				ends.remove(f.end)
 			'''
 			for f2 in self.fly_dict.values():
-				if f2.num == f.num + 1:
-					if f.end in ends:
-						ends.remove(f.end)
+				if f2.num_paths == f.num_paths + 1:
+					if f2.end in ends:
+						ends.remove(f2.end)
+			print(ends)
 			end = random.choice(ends)
+			print(end)
 			f.set_path(end)
 
 	def get_path(self, cf_ID):
