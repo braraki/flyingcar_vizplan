@@ -4,8 +4,8 @@
   <arg name="cf_num" default="1" />
   <arg name="z_coefficient" default="4"/>
   <arg name="continuous" default="True" />
-  <arg name="air_vel" default=".5" />
-  <arg name="land_vel" default=".25" />
+  <arg name="air_vel" default="1.0" />
+  <arg name="land_vel" default=".3" />
 
   <remap from="opt_sg/StartingID_topic" to="setup/StartingID_topic" />
   <remap from="opt_planner/Starter" to="setup/Starter" />
