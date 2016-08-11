@@ -294,6 +294,7 @@ class building_scape:
 	#response to path info, builds and updates path
 	def respond(self, data):
 		#rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.path)
+		print("I heard a path call")
 		if self.cf_num == None:
 			self.cf_num = data.num_IDs
 			self.crazyflie_list = [None]*self.cf_num
