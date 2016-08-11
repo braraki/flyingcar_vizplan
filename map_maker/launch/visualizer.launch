@@ -52,10 +52,7 @@
     <param name="waypoint_node_display" value="True"/>
     <param name="buildings" value="$(arg buildings)"/>
   </node>
-  <node name="simulator" pkg="map_maker" type="simulator.py" output="screen">
-    <param name="delay" value=".05"/>
-  </node>
-
+  
   <param name="robot_description" command="$(find xacro)/xacro '$(find map_maker)/urdf/crazyflie2.urdf.xacro'"/>
 
   <param name="house1_description" command="$(find xacro)/xacro '$(find map_maker)/urdf/house1.urdf.xacro'"/>  

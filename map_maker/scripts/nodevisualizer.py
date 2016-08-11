@@ -49,18 +49,6 @@ def processFeedback(feedback):
 	p = feedback.pose.position
 	print feedback.marker_name + " is now at " + str(p.x) + ", " + str(p.y) + ", " + str(p.z)
 
-'''
-class Category(Enum):
-	mark = 0
-	land = 1
-	park = 2
-	interface = 3
-	cloud = 4
-	waypoint = 5
-
-static_category_dict = {0: Category.mark, 1: Category.land, 2: Category.park, 3: Category.interface, 4: Category.cloud, 5: Category.waypoint}
-'''
-
 class visual_node:
 	def __init__(self, ID, x, y, z, category = None, successors = [], precursors = []):
 		self.ID = ID
@@ -778,7 +766,6 @@ class tile:
 
 		return(int_marker)
 
-
 class house:
 	def __init__(self, x, y, z, theta):
 		global house_ID
@@ -797,58 +784,6 @@ class house:
 				tf.transformations.quaternion_from_euler(0, 0, self.theta), rospy.Time.now(), "house"+str(self.ID)+"/whole", "base_link")
 			time.sleep(.1)
 		#self.broadcaster.publishFixedTransforms()
-
-#ns = node_scape('nodes.csv', 'edges.csv')
-#ns.analyse()
-#ns.construct()
-
-
-
-
-'''
-def map_maker_client():
-	rospy.wait_for_service('send_map')
-	rospy.wait_for_service('send_complex_map')
-	try:
-		print('calling')
-		info_dict = {}
-		func = rospy.ServiceProxy('send_map', MapTalk)
-		resp = func()
-		func_complex = rospy.ServiceProxy('send_complex_map', MapTalk)
-		resp_complex = func_complex()
-		print('recieved')
-		category_list = resp.category_list
-		x_list = resp.x_list
-		y_list = resp.y_list
-		z_list = resp.z_list
-		num_IDs = resp.num_IDs
-		adjacency_array = resp.adjacency_array
-		A = np.array(adjacency_array)
-		A.shape = (num_IDs, num_IDs)
-		for ID in range(num_IDs):
-			x = (x_list[ID])
-			y = (y_list[ID])
-			z = (z_list[ID])
-			c = static_category_dict[category_list[ID]]
-			#print(category_list[ID])
-			info_dict[ID] = ((x, y, z), c)
-		if waypoint_node_display:
-			for ID in range(num_IDs, resp_complex.num_IDs):
-				c = static_category_dict[resp_complex.category_list[ID]]
-				if c == Category.waypoint:
-					x = (resp_complex.x_list[ID])
-					y = (resp_complex.y_list[ID])
-					z = (resp_complex.z_list[ID])
-					info_dict[ID] = ((x, y, z), c)
-		#print(info_dict)
-		ns = node_scape(info_dict, A)
-		#ns.construct()
-		bs = building_scape(ns)
-		bs.build_tiles()
-		bs.construct()
-	except rospy.ServiceException, e:
-		print("service call failed")
-'''
 
 if __name__ == "__main__":
 	print('test')

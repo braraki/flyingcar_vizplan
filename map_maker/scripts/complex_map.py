@@ -1,30 +1,17 @@
 #!/usr/bin/env python
 
 import rospy
-from std_msgs.msg import String
 from map_maker.srv import *
 from map_maker.msg import *
 
-from interactive_markers.interactive_marker_server import *
-from visualization_msgs.msg import *
-from geometry_msgs.msg import Point
-
 import math
-import matplotlib.pyplot as plt
-import time
-import random
-
 import networkx as nx
-from enum import Enum
 import numpy as np
 
 from map_maker import gen_adj_array_info_dict
 
-
 #parameter
-
 ideal_way_point_d = float(rospy.get_param('/complex_map/ideal_way_point_d'))
-
 land_vel = float(rospy.get_param('/complex_map/land_vel'))
 air_vel = float(rospy.get_param('/complex_map/air_vel'))
 time_step = float(rospy.get_param('/complex_map/time_step'))
@@ -34,9 +21,10 @@ if optimal:
 	air_way_point_d = air_vel*(time_step)
 	land_way_point_d = land_vel*(time_step)
 else:
-	#air_way_point_d should be slightly under buffer distance
-	air_way_point_d = 5#ideal_way_point_d
+	#air_way_point_d should be large
+	air_way_point_d = 5
 	land_way_point_d = ideal_way_point_d
+	#represents the proportion of the way from land to interface the waypoint should be
 	air_waypoint_frac = .1
 
 
@@ -75,15 +63,6 @@ def get_num_waypoints2(ID1, ID2, info_dict):
 		else:
 			return(0)
 
-	'''
-	low_d = dist/float(low+1)
-	hi_d = dist/float(hi+1)
-	if abs(hi_d - waypoint_d) < abs(waypoint_d - low_d):
-		return(int(hi))
-	else:
-		return(int(low))
-	'''
-
 #returns info_dict and adjacency_array with waypoints added
 def get_new_info(info_dict, adjacency_array):
 	ID_num = len(info_dict)
@@ -115,20 +94,14 @@ def get_new_info(info_dict, adjacency_array):
 				(x2, y2, z2) = info2[0]
 				if c2 != Category.land and c2 != Category.park:
 					pass_2 = True
-				'''
-				if not optimal and (pass_1 and pass_2):
-					e_list.append((ID1, ID2))
-				'''
 				if pass_1 and pass_2 and z1 == z2:
 					e_list.append((ID1, ID2))
 					if both_ways:
 						e_list.append((ID2, ID1))
 				else:
-					#print('in')
 					(x1, y1, z1) = info1[0]
 					(x2, y2, z2) = info2[0]
 					dist = ((x1 - x2)**2 + (y1 - y2)**2 + (z1 - z2)**2)**.5
-					#nw = get_num_waypoints(dist)
 					nw = get_num_waypoints2(ID1, ID2, info_dict)
 					last_ID = ID1
 					if pass_1 or pass_2:
@@ -155,11 +128,9 @@ def get_new_info(info_dict, adjacency_array):
 					e_list.append((last_ID, ID2))
 					if both_ways:
 						e_list.append((ID2, last_ID))
-
 	for e in e_list:
 		G.add_edge(e[0], e[1])
 	A = nx.to_numpy_matrix(G)
-
 	return(new_info_dict, A)
 
 #sends info out
@@ -173,7 +144,6 @@ class sender:
 		self.A5 = []
 		for fl in A4:
 			self.A5.append(int(fl))
-		#print(A5)
 
 		coordinate_list = [None]*len(info_dict)
 		self.x_list = [None]*len(info_dict)
@@ -197,37 +167,6 @@ class sender:
 	def info_sender(self):
 		s = rospy.Service('send_complex_map', MapTalk ,self.response)
 		print('ready to send info back')
-		#rospy.spin()
-'''
-def map_maker_client():
-	rospy.wait_for_service('send_map')
-	try:
-		print('calling')
-		info_dict = {}
-		func = rospy.ServiceProxy('send_map', MapTalk)
-		resp = func()
-		print('recieved')
-		category_list = resp.category_list
-		x_list = resp.x_list
-		y_list = resp.y_list
-		z_list = resp.z_list
-		num_IDs = resp.num_IDs
-		adjacency_array = resp.adjacency_array
-		A = np.array(adjacency_array)
-		A.shape = (num_IDs, num_IDs)
-		for ID in range(num_IDs):
-			x = (x_list[ID])
-			y = (y_list[ID])
-			z = (z_list[ID])
-			c = static_category_dict[category_list[ID]]
-			#print(category_list[ID])
-			info_dict[ID] = ((x, y, z), c)
-		analysis = get_new_info(info_dict, A)
-		s = sender(analysis[0], analysis[1])
-		s.info_sender()
-	except rospy.ServiceException, e:
-		print("service call failed")
-'''
 
 if __name__ == "__main__":
 	print('test')

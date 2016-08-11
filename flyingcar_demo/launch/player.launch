@@ -39,7 +39,7 @@
   <node name="record_path" pkg="rosbag" type="record" args="-o $(find flyingcar_demo)/rosbag_files/path.rosbag $(arg planner)/time_path_topic" output="screen" />
   <node name="record_pos" pkg="rosbag" type="record" args="-o $(find flyingcar_demo)/rosbag_files/poses.rosbag simulator/SimPos_topic" output="screen" />
   -->
-  <node name="play_path" pkg="rosbag" type="play" args="--clock $(find flyingcar_demo)/rosbag_files/path.rosbag_2016-08-09-10-07-17.bag" output="screen" />
-  <node name="play_pos" pkg="rosbag" type="play" args="--clock $(find flyingcar_demo)/rosbag_files/poses.rosbag_2016-08-09-10-07-17.bag" output="screen" />
+  <node name="play_path" pkg="rosbag" type="play" args="--clock $(find flyingcar_demo)/rosbag_files/path.rosbag_2016-08-11-10-59-05.bag" output="screen" />
+  <node name="play_pos" pkg="rosbag" type="play" args="--clock $(find flyingcar_demo)/rosbag_files/poses.rosbag_2016-08-11-10-59-05.bag" output="screen" />
 
 </launch>

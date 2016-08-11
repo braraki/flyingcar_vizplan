@@ -24,21 +24,11 @@ import numpy as np
 
 from map_maker import gen_adj_array_info_dict
 
-'''
-class Category(Enum):
-	mark = 0
-	land = 1
-	park = 2
-	interface = 3
-	cloud = 4
-	waypoint = 5
-
-static_category_dict = {0: Category.mark, 1: Category.land, 2: Category.park, 3: Category.interface, 4: Category.cloud, 5: Category.waypoint}
-'''
-
 park_dict = {}
 
 in_use = {}
+
+started = []
 
 def get_remaining():
 	global park_dict
@@ -64,7 +54,9 @@ def get_remaining():
 			not_fin.append(ID)
 	return((true_remains, not_start, not_fin))
 
-def select_ID(true_remains, not_start, not_fin, start=False):
+def select_ID(true_remains, not_start, not_fin, start=False, avoid = None):
+	if avoid in true_remains:
+		true_remains.remove(avoid)
 	if len(true_remains)>0:
 		return(random.choice(true_remains))
 	if start:
@@ -73,30 +65,34 @@ def select_ID(true_remains, not_start, not_fin, start=False):
 	else:
 		list1 = not_fin
 		list2 = not_start
+	if avoid in list1:
+		list1.remove(avoid)
 	if len(list1)>0:
 		return(random.choice(list1))
+	if avoid in list2:
+		list2.remove(avoid)
 	if len(list2)>0:
 		return(random.choice(list2))
-	return(random.choice(park_dict.keys()))
+	final_list = park_dict.keys()
+	if avoid in final_list:
+		final_list.remove(avoid)
+	return(random.choice(final_list))
 
 def generate_spots(cf_ID):
 	global park_dict
 	global in_use
+	global started
 	(true_remains, not_start, not_fin) = get_remaining()
 	if cf_ID in in_use:
 		spots = in_use[cf_ID]
 		start = spots[1]
-		end = select_ID(true_remains, not_start, not_fin)
+		end = select_ID(true_remains, not_start, not_fin, not cf_ID in started, start)
 	else:
 		start = select_ID(true_remains, not_start, not_fin, True)
-		if start in true_remains:
-			true_remains.remove(start)
-		if start in not_start:
-			not_start.remove(start)
-		if start in not_fin:
-			not_fin.remove(start)
-		end = select_ID(true_remains, not_start, not_fin)
+		end = select_ID(true_remains, not_start, not_fin, False, start)
 	in_use[cf_ID] = (start, end)
+	if not cf_ID in started:
+		started.append(cf_ID)
 	print('start and end')
 	print((start, end))
 	return((start, end))

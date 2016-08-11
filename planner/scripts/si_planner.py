@@ -42,17 +42,7 @@ si_dict = {}
 air_buffer_dict = {}
 
 count = 0
-'''
-class Category(Enum):
-	mark = 0
-	land = 1
-	park = 2
-	interface = 3
-	cloud = 4
-	waypoint = 5
 
-static_category_dict = {0: Category.mark, 1: Category.land, 2: Category.park, 3: Category.interface, 4: Category.cloud, 5: Category.waypoint}
-'''
 ##search
 
 ##this will search through the dictionary returned from a landscape in the 
