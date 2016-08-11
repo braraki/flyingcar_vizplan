@@ -98,7 +98,6 @@ def setter():
 	PosPub = rospy.Publisher('~Start_SimPos_topic', SimPos, queue_size = 10)
 	IDPub = rospy.Publisher('~StartingID_topic', setup_IDs, queue_size = 10)
 	StartPub = rospy.Publisher('~Starter', Bool, queue_size = 10)
-	#waits so that subscriber will recieve message
 	print('Are you ready to begin, if so type Y: ')
 	go = 'N'
 	reps = 0

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from std_msgs.msg import String
+
 from map_maker.srv import *
 from map_maker.msg import *
 
@@ -10,13 +10,7 @@ from visualization_msgs.msg import *
 from geometry_msgs.msg import Point
 
 import math
-import matplotlib.pyplot as plt
-import time
 import random
-
-import networkx as nx
-from enum import Enum
-import numpy as np
 
 import tf
 
@@ -43,14 +37,13 @@ else:
 	buildings = False
 
 house_ID = 0
-reps = 0
 
 def processFeedback(feedback):
 	p = feedback.pose.position
 	print feedback.marker_name + " is now at " + str(p.x) + ", " + str(p.y) + ", " + str(p.z)
 
 class visual_node:
-	def __init__(self, ID, x, y, z, category = None, successors = [], precursors = []):
+	def __init__(self, ID, x, y, z, category = None):
 		self.ID = ID
 		self.x = x
 		self.y = y 
@@ -59,8 +52,8 @@ class visual_node:
 			self.color = (0, 255, 0)
 		else:
 			self.color = (0, 0, 255)
-		self.successors = successors[:]
-		self.precursors = precursors[:]
+		self.successors = []
+		self.precursors = []
 		if category != None:
 			self.categorize(category)
 		self.tile = None
@@ -90,9 +83,9 @@ class visual_node:
 	def construct(self, int_marker):
 		n_marker = Marker()
 		n_marker.type = Marker.CUBE
-		n_marker.scale.x = .1*.5
-		n_marker.scale.y = .1*.5
-		n_marker.scale.z = .1*.5
+		n_marker.scale.x = .05
+		n_marker.scale.y = .05
+		n_marker.scale.z = .05
 		(n_marker.color.r, n_marker.color.g, n_marker.color.b) = self.color	
 		n_marker.color.a = .5
 		n_marker.pose.position.x = self.x
@@ -110,38 +103,27 @@ class visual_node:
 		self.tile = t
 
 class visual_edge:
-	def __init__(self, ID, node1ID, node2ID, node1 = None, node2 = None):
+	def __init__(self, ID, node1 = None, node2 = None):
 		self.ID = ID
-		self.node1ID = node1ID
-		self.node2ID = node2ID
 		self.node1 = node1
 		self.node2 = node2
 
 	def construct(self, int_marker):
-		x1 = self.node1.x
-		y1 = self.node1.y
-		z1 = self.node1.z
-		x2 = self.node2.x
-		y2 = self.node2.y
-		z2 = self.node2.z
-
 		color = (80, 80, 80)
 		a_marker = Marker()
 		a_marker.type = Marker.ARROW
-		a_marker.scale.x = .05*.5
-		a_marker.scale.y = .1*.5
-		a_marker.scale.z = .1*.5
+		a_marker.scale.x = .025
+		a_marker.scale.y = .05
+		a_marker.scale.z = .05
 		(a_marker.color.r, a_marker.color.g, a_marker.color.b) = color
 		a_marker.color.a = .5
+
 		start = Point()
 		end = Point()
-
-		start.x = self.node1.x
-		start.y = self.node1.y
-		start.z = self.node1.z
-		end.x = self.node2.x
-		end.y = self.node2.y
-		end.z = self.node2.z
+		n1 = self.node1
+		(start.x, start.y, start.z) = (n1.x, n1.y, n1.z)
+		n2 = self.node2
+		(end.x, end.y, end.z) = (n2.x, n2.y, n2.z)
 
 		a_marker.points.append(start)
 		a_marker.points.append(end)
@@ -157,23 +139,19 @@ class node_scape:
 	def __init__(self, info_dict, adjacency_matrix):
 		self.info_dict = info_dict
 		self.adjacency_matrix = adjacency_matrix
-		self.node_list = []
-		self.node_ID_dict = {}
+		self.node_dict = {}
 		self.edge_list = []
 		for ID in info_dict:
-			info = info_dict[ID]
-			coor = info[0]
-			cat = info[1]
+			(coor, cat) = info_dict[ID]
 			n = visual_node(ID, coor[0], coor[1], coor[2], cat)
-			self.node_list.append(n)
-			self.node_ID_dict[ID] = n
+			self.node_dict[ID] = n
 		edge_num = 0
 		for (ID1, row) in enumerate(adjacency_matrix):
 			for (ID2, value) in enumerate(row):
 				if value == 1:
-					n1 = self.node_ID_dict[ID1]
-					n2 = self.node_ID_dict[ID2]
-					e = visual_edge(edge_num, ID1, ID2, n1, n2)
+					n1 = self.node_dict[ID1]
+					n2 = self.node_dict[ID2]
+					e = visual_edge(edge_num, n1, n2)
 					self.edge_list.append(e)
 					edge_num += 1
 		self.successor_precursors()
@@ -190,22 +168,14 @@ class node_scape:
 		print('edge work over')
 
 	def construct(self):
-		#rospy.Subscriber('commands', String, self.interpret)
-
 		server = InteractiveMarkerServer("simple_marker")
-		
-		#rospy.Subscriber('commands', String, self.interpret)
-		
-		
 		# create an interactive marker for our server
 		int_marker = InteractiveMarker()
 		int_marker.header.frame_id = "base_link"
 		int_marker.name = "my_marker"
 
-		for n in self.node_list:
-			if True:#n.category == 'land':
-				int_marker = n.construct(int_marker)
-			# 'commit' changes and send to all clients
+		for n in self.node_dict.values():
+			int_marker = n.construct(int_marker)
 		
 		for e in self.edge_list:
 			node1 = e.node1
@@ -213,7 +183,6 @@ class node_scape:
 			if node1.category != Category.cloud or node2.category != Category.cloud:
 				int_marker = e.construct(int_marker)
 		
-
 		server.insert(int_marker, processFeedback)
 
 		server.applyChanges()
@@ -234,21 +203,6 @@ class building_scape:
 
 	#does all of the tile work (roadratio, flyable, etc.)
 	def build_tiles(self):
-		'''
-		markxs = []
-		markys = []
-		z_dict = {}
-		base_road_ratio = None
-		for n in self.node_scape.node_list:
-			if n.category == Category.mark:
-				if n.x not in markxs:
-					markxs.append(n.x)
-				if n.y not in markys:
-					markys.append(n.y)
-				z_dict[(n.x, n.y)] = n.z
-		markxs = sorted(markxs)
-		markys = sorted(markys)
-		'''
 		base_road_ratio = None
 		markxs = list(set(self.mark_x))
 		markys = list(set(self.mark_y))
@@ -260,15 +214,14 @@ class building_scape:
 			c_x = x + length*.5
 			for y in markys:
 				c_y = y + length*.5
-				z = 0#z_dict[(x, y)]
-				t = tile(c_x, c_y, z, length, width)
+				t = tile(c_x, c_y, 0, length, width)
 				self.tile_dict[(c_x, c_y)] = t
-				for n in self.node_scape.node_list:
+				for n in self.node_scape.node_dict.values():
 					if t.test_node(n):
 						t.assign_node(n)
 		for t in self.tile_dict.values():
 			t.build_exitnodelist()
-			t.build_flyable(self.node_scape.node_list)
+			t.build_flyable(self.node_scape.node_dict.values())
 			if base_road_ratio == None:
 				base_road_ratio = t.return_road_ratio()
 		if base_road_ratio == None:
@@ -308,9 +261,7 @@ class building_scape:
 			cf.update_path(p)
 
 	#response to position information, builds and updates crazyflie
-	#using reps to smooth out motion
 	def pos_respond(self, data):
-		global reps
 		if len(self.crazyflie_list) != len(data.x):
 			self.cf_num = len(data.x)
 			self.crazyflie_list = [None]*self.cf_num
@@ -325,32 +276,16 @@ class building_scape:
 			if self.crazyflie_list[index] != None:
 				cf = self.crazyflie_list[index]
 				cf.update_flie((x,y,z))
-				cf.construct_flie(False)
+				cf.construct_flie()
 		self.server.applyChanges()
-		reps += 1
-	'''
-	def fluid_construct(self):
-		rospy.Subscriber('~time_path_topic', HiPathTime, self.respond)
-		rospy.Subscriber('~SimPos_topic', SimPos, self.pos_respond)
-		rospy.Subscriber('~Start_SimPos_topic', SimPos, self.pos_respond)
-		#self.server = InteractiveMarkerServer("simple_marker")
-		#rospy.spin()
-	'''
 
 	def construct(self):
-		#self.node_scape.construct()
-		
-		#rospy.Subscriber('~time_path_topic', HiPathTime, self.respond)
-		#rospy.Subscriber('~SimPos_topic', SimPos, self.pos_respond)
-		
-		#thread.start_new_thread ( self.fluid_construct , ())
-
 		# create an interactive marker for our server
 		n_int_marker = InteractiveMarker()
 		n_int_marker.header.frame_id = "base_link"
 		n_int_marker.name = "my_node_marker"
 
-		for n in self.node_scape.node_list:
+		for n in self.node_scape.node_dict.values():
 			if air_node_display:
 				n_int_marker = n.construct(n_int_marker)
 			elif n.category != Category.cloud and n.category != Category.interface:
@@ -376,24 +311,14 @@ class building_scape:
 		random.shuffle(tiles)
 		for t in tiles:
 			t_int_marker = t.construct(t_int_marker)
-		thread.start_new_thread(self.construct_2, (n_int_marker, e_int_marker, t_int_marker))
-		#self.construct_2(n_int_marker, e_int_marker, t_int_marker)
 
-		
-	def construct_2(self, im1, im2, im3):
-		self.server.insert(im1, processFeedback)
-		self.server.insert(im2, processFeedback)
-		self.server.insert(im3, processFeedback)
+		self.server.insert(n_int_marker, processFeedback)
+		self.server.insert(e_int_marker, processFeedback)
+		self.server.insert(t_int_marker, processFeedback)
 		rate = rospy.Rate(10)
 		while not rospy.is_shutdown():
-			'''
-			self.server.insert(im1, processFeedback)
-			self.server.insert(im2, processFeedback)
-			self.server.insert(im3, processFeedback)
-			'''
 			self.server.applyChanges()
 			rate.sleep()
-		#rospy.spin()
 
 class crazyflie:
 	def __init__(self, ID, path, server, node_scape):
@@ -404,7 +329,8 @@ class crazyflie:
 
 		self.path = []
 		for id in path:
-			if id in self.node_scape.node_ID_dict:
+			#gets rid of waypoints if waypoints aren't being shown
+			if id in self.node_scape.node_dict:
 				self.path.append(id)
 
 		self.int_marker2 = InteractiveMarker()
@@ -424,26 +350,22 @@ class crazyflie:
 		for index in range(len(self.path)-1):
 			ID1 = self.path[index]
 			ID2 = self.path[index + 1]
-			n1 = self.node_scape.node_ID_dict[ID1]
-			n2 = self.node_scape.node_ID_dict[ID2]
+			n1 = self.node_scape.node_dict[ID1]
+			n2 = self.node_scape.node_dict[ID2]
 
 			color = (255, 0, 0)
 			a_marker = Marker()
 			a_marker.type = Marker.ARROW
-			a_marker.scale.x = .05*.5
-			a_marker.scale.y = .1*.5
-			a_marker.scale.z = .1*.5
+			a_marker.scale.x = .025
+			a_marker.scale.y = .05
+			a_marker.scale.z = .05
 			(a_marker.color.r, a_marker.color.g, a_marker.color.b) = color
 			a_marker.color.a = 1
+
 			start = Point()
 			end = Point()
-
-			start.x = n1.x
-			start.y = n1.y
-			start.z = n1.z
-			end.x = n2.x
-			end.y = n2.y
-			end.z = n2.z
+			(start.x, start.y, start.z) = (n1.x, n1.y, n1.z)
+			(end.x, end.y, end.z) = (n2.x, n2.y, n2.z)
 
 			a_marker.points.append(start)
 			a_marker.points.append(end)
@@ -463,12 +385,12 @@ class crazyflie:
 		if path != self.path:
 			self.path = []
 			for id in path:
-				if id in self.node_scape.node_ID_dict:
+				if id in self.node_scape.node_dict:
 					self.path.append(id)
 			self.construct_path()
 
 
-	def construct_flie(self, apply_changes = True):
+	def construct_flie(self):
 		self.broadcaster.sendTransform((self.position[0], self.position[1], self.position[2]+.025),
 			tf.transformations.quaternion_from_euler(0, 0, 0), rospy.Time.now(), "crazy_flie"+str(self.ID)+"/base_link", "base_link")
 		if True:
@@ -497,8 +419,6 @@ class crazyflie:
 			self.int_marker3.controls.append(cf_control)
 
 			self.server.insert(self.int_marker3, processFeedback)
-			if apply_changes:
-				self.server.applyChanges()
 		
 	def update_flie(self, pos):
 		self.position = pos
