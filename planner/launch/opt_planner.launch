@@ -7,7 +7,7 @@
   <arg name="air_vel" default=".5" />
   <arg name="land_vel" default=".25" />
 
-  <remap from="easy_sg/StartingID_topic" to="setup/StartingID_topic" />
+  <remap from="opt_sg/StartingID_topic" to="setup/StartingID_topic" />
   <remap from="opt_planner/Starter" to="setup/Starter" />
 
   <node name="opt_planner" pkg="planner" type="opt_planner.py" output="screen">
@@ -19,7 +19,7 @@
     <param name="air_buffer_dist" value=".5" />
   </node>
 
-  <node name="easy_sg" pkg="planner" type="easy_sg.py"/>
+  <node name="opt_sg" pkg="planner" type="opt_sg.py"/>
 
   <node name="setup" pkg="planner" type="setup.py" output="screen">
     <param name="cf_num" value="$(arg cf_num)" />
