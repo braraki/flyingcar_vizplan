@@ -1,45 +1,22 @@
 #!/usr/bin/env python
 
 import rospy
-from std_msgs.msg import String
 from map_maker.srv import *
 from map_maker.msg import *
 from planner.srv import *
 from planner.msg import *
 
-from interactive_markers.interactive_marker_server import *
-from visualization_msgs.msg import *
-from geometry_msgs.msg import Point
-
-import math
-import matplotlib.pyplot as plt
-import time
 import random
-
-import networkx as nx
-from enum import Enum
-import numpy as np
-
 
 from map_maker import gen_adj_array_info_dict
 
 park_dict = {}
-
-in_use = {}
-
-started = []
 
 class single_fly:
 	def __init__(self):
 		self.start = None
 		self.end = None
 		self.num_paths = 0
-
-	def set_start(self, start):
-		self.start = start
-
-	def set_end(self, end):
-		self.end = end
 
 	def set_path(self, end):
 		self.start = self.end
@@ -81,10 +58,6 @@ class system:
 			f.set_first_path(start, end)
 		else:
 			ends = allowed_IDs[:]
-			'''
-			if f.end in ends:
-				ends.remove(f.end)
-			'''
 			for f2 in self.fly_dict.values():
 				if f2.num_paths == f.num_paths + 1:
 					if f2.end in ends:
@@ -114,7 +87,7 @@ class system:
 
 
 if __name__ == "__main__":
-	rospy.init_node('easy_sg')
+	rospy.init_node('opt_sg')
 	#print('test')
 	info_dict = gen_adj_array_info_dict.map_maker_client('send_map')[0]
 	Category = gen_adj_array_info_dict.Category

@@ -23,7 +23,7 @@ import numpy as np
 
 
 from map_maker import gen_adj_array_info_dict
-
+'''
 park_dict = {}
 
 in_use = {}
@@ -105,35 +105,7 @@ def info_sender():
 	s = rospy.Service('send_situation', situation, response)
 	#print('ready to send info back')
 	#rospy.spin()
-'''
-def map_maker_client():
-	global park_dict
-	rospy.wait_for_service('send_map')
-	try:
-		#print('calling')
-		func = rospy.ServiceProxy('send_map', MapTalk)
-		resp = func()
-		#print('recieved')
-		category_list = resp.category_list
-		x_list = resp.x_list
-		y_list = resp.y_list
-		z_list = resp.z_list
-		num_IDs = resp.num_IDs
-		adjacency_array = resp.adjacency_array
-		A = np.array(adjacency_array)
-		A.shape = (num_IDs, num_IDs)
-		adj_array = A
-		for ID in range(num_IDs):
-			if static_category_dict[category_list[ID]] == Category.park:
-				x = (x_list[ID])/1000.0
-				y = (y_list[ID])/1000.0
-				z = (z_list[ID])/1000.0
-				park_dict[ID] = (x, y, z)
-		info_sender()
-	except rospy.ServiceException, e:
-		t=1
-		#print("service call failed")
-'''
+
 def setup_situation(data):
 	global in_use
 	starting_IDs = data.starting_IDs
@@ -152,4 +124,109 @@ if __name__ == "__main__":
 			park_dict[ID] = info_dict[ID][0]
 	rospy.Subscriber('~StartingID_topic', setup_IDs, setup_situation)
 	info_sender()
+	rospy.spin()
+
+
+	'''
+
+
+park_dict = {}
+
+class single_fly:
+	def __init__(self):
+		self.start = None
+		self.end = None
+		self.num_paths = 0
+
+	def set_path(self, end):
+		print('set path')
+		self.start = self.end
+		self.end = end
+		self.num_paths += 1
+
+	def set_first_path(self, start, end):
+		print('set first path')
+		self.start = start
+		self.end = end
+		self.num_paths += 1
+
+	def get_path(self):
+		print('get path')
+		return((self.start, self.end))
+
+class system:
+	def __init__(self):
+		self.fly_dict = {}
+
+	def response(self, req):
+		print('response')
+		self.update_path(req.cf_ID)
+		(start_ID, end_ID) = self.get_path(req.cf_ID)
+		return situationResponse(start_ID, end_ID)
+
+	def update_path(self, cf_ID):
+		print('update path')
+		f = self.fly_dict[cf_ID]
+		off_limits = []
+		allowed_IDs = park_dict.keys()
+		if f.num_paths == 0:
+			print('why am i here')
+			starts = allowed_IDs[:]
+			ends = allowed_IDs[:]
+			for f2 in self.fly_dict.values():
+				if f2.start in starts:
+					starts.remove(f2.start)
+				if f2.end in ends:
+					ends.remove(f2.end)
+			start = random.choice(starts)
+			end = random.choice(ends)
+			f.set_first_path(start, end)
+		else:
+			ends = allowed_IDs[:]
+			if f.end in ends and len(ends)>1:
+				ends.remove(f.end)
+			for f2 in self.fly_dict.values():
+				if f2 != f and len(ends) > 1:
+					if f2.end in ends:
+						ends.remove(f2.end)
+			for f2 in self.fly_dict.values():
+				if f2 != f and len(ends)>1:
+					if f2.start in ends:
+						ends.remove(f2.start)
+			end = random.choice(ends)
+			print(end)
+			f.set_path(end)
+
+	def get_path(self, cf_ID):
+		print('get path')
+		f = self.fly_dict[cf_ID]
+		return f.get_path()
+
+	def info_sender(self):
+		print('info sender')
+		s = rospy.Service('send_situation', situation, self.response)
+		#print('ready to send info back')
+		#rospy.spin()
+
+	def setup_situation(self, data):
+		print('setup situation')
+		starting_IDs = data.starting_IDs
+		for index in range(len(starting_IDs)):
+			f = single_fly()
+			f.set_first_path(starting_IDs[index], starting_IDs[index])
+			self.fly_dict[index] = f
+
+
+if __name__ == "__main__":
+	rospy.init_node('easy_sg')
+	#print('test')
+	info_dict = gen_adj_array_info_dict.map_maker_client('send_map')[0]
+	Category = gen_adj_array_info_dict.Category
+	for ID in info_dict:
+		c = info_dict[ID][1]
+		if c == Category.park:
+			park_dict[ID] = info_dict[ID][0]
+	sys = system()
+	rospy.Subscriber('~StartingID_topic', setup_IDs, sys.setup_situation)
+	sys.info_sender()
 	rospy.spin()
