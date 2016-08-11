@@ -40,17 +40,8 @@ air_buffer_dist = float(rospy.get_param('/opt_planner/air_buffer_dist'))
 count = 0
 nontime_IDs = 0
 planner_timestep = 0.5
-'''
-class Category(Enum):
-	mark = 0
-	land = 1
-	park = 2
-	interface = 3
-	cloud = 4
-	waypoint = 5
 
-static_category_dict = {0: Category.mark, 1: Category.land, 2: Category.park, 3: Category.interface, 4: Category.cloud, 5: Category.waypoint}
-'''
+
 loopback_constraints = []
 num_loopback_arcs = 0
 timestep_constraints = []
@@ -196,11 +187,33 @@ def optimal_distance(info_dict, adj_array, start, goal):
 	optimal_path = a_star(successors, start, goal_test, dist)
 	return optimal_path, len(optimal_path)
 
+def optimal_cost_path(info_dict, adj_array, start, goal, true_costs):
+	(x2, y2, z2) = info_dict[goal][0]
+	def successors(id):
+		(x1, y1, z1) = info_dict[id][0]
+		sucs = []
+		row = adj_array[id]
+		for (goal, value) in enumerate(row):
+			if value == 1:
+				(fx, fy, fz) = info_dict[goal][0]
+				dist_traveled = ((x1-fx)**2 + (y1-fy)**2 + (z1-fz)**2)**.5
+				cost = true_costs[(id,goal)]
+				sucs.append((goal, cost))
+		return(sucs)
+	def goal_test(id):
+		return  goal == id
+	def dist(id):
+		(x1, y1, z1) = info_dict[id][0]
+		dist = ((x1-x2)**2 + (y1-y2)**2 + (z1-z2)**2)**.5
+		return(dist)
+	optimal_path = a_star(successors, start, goal_test, dist)
+	print "Supposedly optimal path: " + str(optimal_path)
+	return optimal_path, len(optimal_path)-1
+
 def convert_graph(old_graph, old_adj, startend, true_costs, time_horizon):
 	og = old_graph
 	oa = old_adj
 	th = time_horizon
-	num_IDs = len(old_graph)
 
 	# new adj array
 	# the format is this: each node ID is represented by
@@ -221,7 +234,7 @@ def convert_graph(old_graph, old_adj, startend, true_costs, time_horizon):
 	# at the last time step
 	global num_loopback_arcs
 	for start, end in startend:
-		arcs.append((end+th*num_IDs,start))
+		arcs.append((end+th*nontime_IDs,start))
 		num_loopback_arcs += 1
 		print end, start
 
@@ -230,13 +243,13 @@ def convert_graph(old_graph, old_adj, startend, true_costs, time_horizon):
 	# this way when you loop through the arcs, you are looping through
 	# one TIMESTEP at a time, so based off of the arc number you can
 	# easily tell which timestep you are in
-	for timestep in range(th):
+	for ID in range(nontime_IDs):
 		variables_per_timestep = 0
 		constraints_per_timestep.append([])
 		# need to connect ID+timestep*num_IDs to ID+(timestep+1)*num_IDs
-		for ID in range(num_IDs):
-			current_state = ID+timestep*num_IDs
-			next_state = ID+(timestep+1)*num_IDs
+		for timestep in range(0,th):
+			current_state = ID+timestep*nontime_IDs
+			next_state = ID+(timestep+1)*nontime_IDs
 			#na[(current_state, next_state)] = 1
 			arcs.append((current_state, next_state))
 			variables_per_timestep += 1
@@ -256,7 +269,7 @@ def convert_graph(old_graph, old_adj, startend, true_costs, time_horizon):
 			for (ID2, value) in enumerate(old_row):
 				if value == 1 and ID2 != ID:
 					# ID2 is a successor
-					next_neighbor = ID2+(timestep+1)*num_IDs
+					next_neighbor = ID2+(timestep+1)*nontime_IDs
 					#na[(current_state, next_neighbor)] = 1
 					arcs.append((current_state, next_neighbor))
 					variables_per_timestep += 1
@@ -273,7 +286,7 @@ def convert_graph(old_graph, old_adj, startend, true_costs, time_horizon):
 						if ID2 == startend[cf][1]:
 							dists[(cf,current_state,next_neighbor)] = 0
 	
-	print "NUM IDS: " + str(num_IDs)
+	print "NUM IDS: " + str(nontime_IDs)
 	print "num time arcs: " + str(len(arcs))
 	print variables_per_timestep
 	#print arcs
@@ -339,19 +352,18 @@ def generic_model(arcs,startend,num_IDs, optimal_paths, th, adj_array):
 	for cf in range(cf_num):
 		i,j = arcs[cf]
 		m.addConstr(flow[cf,i,j] == 1, 'loopback_filled_%s' %(cf))
+		print "loopback " + str(i) + " " + str(j) + " filled"
 		constraint_num += 1
 
 	# add capacity constraint on each arc
 	# one robot max per arc
 	# not added to loopback arcs anymore. not necessary
-	#for i, j in arcs:
-
-	# add meet capacity and meet collision constraints
-	for v in range(num_IDs):
-		i, j = arcs[v]
+	for i, j in arcs:
 		m.addConstr(quicksum(flow[cf,i,j] for cf in range(cf_num)) <= 1.0,
 			name='cap_%s_%s' % (i,j))
 
+	# add meet collision constraint
+	for v in range(num_IDs):
 		v_out = arcs.select(v,'*')
 		flow_list = []
 		for i,o in v_out:
@@ -367,13 +379,21 @@ def generic_model(arcs,startend,num_IDs, optimal_paths, th, adj_array):
 
 	# flow conservation constraints
 	for cf in range(cf_num):
-		for node in range(num_IDs):
+		for node in range(len(arcs)):
 			m.addConstr(quicksum(flow[cf,i,j] for i,j in arcs.select('*',node)) ==
 				quicksum(flow[cf,j,k] for j,k in arcs.select(node,'*')),
 					'node_%s_%s' % (cf,node))
-			constraint_num += 1
-			timestep = id_to_timestep(node)
-			constraints_per_timestep[timestep] += [constraint_num]
+			#constraint_num += 1
+			#timestep = id_to_timestep(node)
+			#constraints_per_timestep[timestep] += [constraint_num]
+	# for cf in range(cf_num):
+	# 	for node in range(num_IDs):
+	# 		m.addConstr(quicksum(flow[cf,i,j] for i,j in arcs.select('*',node)) ==
+	# 			quicksum(flow[cf,j,k] for j,k in arcs.select(node,'*')),
+	# 				'node_%s_%s' % (cf,node))
+	# 		constraint_num += 1
+	# 		timestep = id_to_timestep(node)
+	# 		constraints_per_timestep[timestep] += [constraint_num]
 
 
 	print str(time.time()) + " added flow conservation constraints"
@@ -422,7 +442,7 @@ def generic_model(arcs,startend,num_IDs, optimal_paths, th, adj_array):
 
 	print str(time.time()) + " added head-on collision constraints"
 
-	print constraints_per_timestep[0]
+	#print constraints_per_timestep[0]
 	print variables_per_timestep
 
 	return m, flow
@@ -490,7 +510,7 @@ class full_system:
 		self.model_type = 'total_distance'
 		self.planning_time = 0
 		self.time_horizon = 0
-		self.true_costs = {}
+		self.true_costs = edge_costs(self.info_dict, self.adj_array)
 		self.pubTime = rospy.Publisher('~time_path_topic',HiPathTime, queue_size=10)
 		self.runner()
 
@@ -506,7 +526,7 @@ class full_system:
 			(ID1, ID2) = self.request_situation(cf_ID)
 			startend.append((ID1,ID2))
 			print startend[cf_ID]
-			optimal_path, optimal_path_steps = optimal_distance(self.info_dict,self.adj_array,ID1,ID2)
+			optimal_path, optimal_path_steps = optimal_cost_path(self.info_dict,self.adj_array,ID1,ID2,self.true_costs)
 			optimal_paths.append(optimal_path)
 			optimal_steps.append(optimal_path_steps)
 			if optimal_steps[cf_ID] > min_time_horizon:
@@ -523,214 +543,6 @@ class full_system:
 		if continuous:
 			self.continuous_paths(m, flow, arcs, costs, old_startend, old_time_horizon)
 
-	def update_model(self, m, flow, startend, time_horizon, old_startend, old_time_horizon, arcs, costs):
-
-		# remove old loopback arc constraints and loopback arcs, and loopback flow variables
-		# and replace with new constraints and arcs and variables
-
-		clist = m.getConstrs()
-		for i in range(num_loopback_arcs):
-			s, e = arcs.pop(0)
-			if self.model_type == 'total_distance':
-				m.remove(m.getConstrByName('loopback_filled_%s' % (i)))
-			m.remove(m.getConstrByName('cap_%s_%s' % (s, e)))
-			for cf in range(cf_num):
-				if cf != i:
-					m.remove(m.getConstrByName('loopback_cap_%s_%s_%s' % (cf, s, e)))
-					m.remove(flow.pop((cf,s,e)))
-					#arcs.pop(i)
-		for i in range(len(startend)):
-			start = startend[i][0]
-			end = startend[i][1] + (time_horizon)*nontime_IDs
-			arcs.insert(i, (end,start))
-			for cf in range(cf_num):
-				flow[cf,end,start] = m.addVar(ub=1.0, obj=0.0, vtype = GRB.BINARY,
-					name='flow_%s_%s_%s' % (cf, end,start))
-
-		m.update()
-
-		for i in range(len(startend)):
-			start = startend[i][0]
-			end = startend[i][1] + (time_horizon)*nontime_IDs
-			if self.model_type == 'total_distance':
-				m.addConstr(flow[cf,end,start] == 1, 'loopback_filled_%s' %(i))
-			m.addConstr(quicksum(flow[cf,end,start] for cf in range(cf_num)) <= 1.0,
-				name='cap_%s_%s' % (end,start))
-			for cf in range(cf_num):
-				if cf != i:
-					m.addConstr(flow[cf,end,start] == 0,
-						'loopback_cap_%s_%s_%s' % (cf, end,start))
-
-		m.update()
-
-		m, flow, arcs, costs = self.update_graph(m,flow,arcs,costs,startend,time_horizon,old_startend,old_time_horizon)
-
-		m.update()
-
-		return m, flow,arcs,costs
-
-	def update_graph(self,m,flow,arcs,costs,startend,time_horizon,old_startend,old_time_horizon):
-
-		if time_horizon > old_time_horizon:
-			print "adding nodes"
-			costs = self.update_graph_update_old_startend_costs(costs,old_startend,old_time_horizon,self.true_costs)
-			m, flow, arcs, costs = self.update_graph_add_nodes(m,flow,arcs,costs,startend,time_horizon,old_time_horizon,self.true_costs)
-		elif time_horizon < old_time_horizon:
-			print "removing nodes"
-			m, flow, arcs, costs = self.update_graph_remove_nodes(m,flow,arcs,costs,time_horizon,old_time_horizon)
-
-		objExpr = LinExpr()
-		for cf in range(cf_num):
-			for i,j in arcs[len(startend):]:
-				objExpr.addTerms(costs[cf,i,j],flow[cf,i,j])
-
-		m.setObjective(objExpr,GRB.MINIMIZE)
-
-		m.update()
-
-		return m, flow, arcs, costs
-
-	def update_graph_update_old_startend_costs(self,costs,old_startend,old_time_horizon):
-		for cf in range(len(old_startend)):
-			i, j = old_startend[cf]
-			start = i
-			end_before = j + nontime_IDs*(old_time_horizon-1)
-			end = j + nontime_IDs*old_time_horizon
-			# cover the 'waiting at the goal' state
-			if costs[cf,end_before,end] == 0:
-				costs[(cf,end_before,end)] = self.true_costs[(j,j)]
-
-			predecessor_matrix = self.adj_array.transpose()
-			predecessors = predecessor_matrix[j]
-			for (ID,value) in enumerate(predecessors):
-				if value == 1 and ID != j:
-					end_pred = ID + (old_time_horizon-1)*nontime_IDs
-					if costs[cf,end_pred,end] == 0:
-						costs[cf,end_pred,end] = self.true_costs[(ID,j)]
-
-		return costs
-			
-
-	def update_graph_remove_nodes(self,m,flow,arcs,costs,time_horizon,old_time_horizon):
-		# these are the start and end indices of the arcs to be removed
-		start = time_horizon*variables_per_timestep + num_loopback_arcs
-		end = old_time_horizon*variables_per_timestep + num_loopback_arcs
-		arcs = [arc for arc in arcs if arc not in range(start,end)]
-
-		vlist = m.getVars()
-		for vid in range(start,end):
-			m.remove(vlist[vid])
-			name = vlist[vid].varName
-			el = [int(s) for s in name.split('_') if s.isdigit()]
-			del flow[(el[0],el[1],el[2])]
-			del costs[(el[0],el[1],el[2])]
-
-		m.update()
-
-		m = self.remove_constraints(m,old_time_horizon,time_horizon)
-
-		m.update()
-
-		return m, flow, arcs, costs
-
-	def remove_constraints(m,time_horizon,old_time_horizon):
-		clist = m.getConstrs()
-		for timestep in range(time_horizon, old_time_horizon):
-			for cnum in constraints_per_timestep[timestep]:
-				m.remove(clist[cnum])
-		m.update()
-
-		return m
-
-	def update_graph_add_nodes(self,m,flow,arcs,costs,startend,time_horizon,old_time_horizon):
-		added_variables = []
-		added_arcs = tuplelist()
-		for ID in range(nontime_IDs):
-			# need to connect ID+timestep*num_IDs to ID+(timestep+1)*num_IDs
-			for timestep in range(old_time_horizon,time_horizon):
-				current_state = ID+timestep*nontime_IDs
-				next_state = ID+(timestep+1)*nontime_IDs
-				#na[(current_state, next_state)] = 1
-				arcs.append((current_state, next_state))
-				added_arcs.append((current_state, next_state))
-				# costs are structured so that each robot/edge combo has
-				# a unique cost. This should allow us to adjust cost based
-				# on robot-specific data such as battery voltage
-				for cf in range(cf_num):
-					costs[(cf,current_state,next_state)] = self.true_costs[(ID,ID)]
-					flow[cf,current_state,next_state] = m.addVar(ub=1.0, obj= 0.0, vtype=GRB.BINARY,
-						name='flow_%s_%s_%s' % (cf, current_state, next_state))
-					added_variables.append((cf,current_state,next_state))
-
-					if ID == startend[cf][1]:
-						costs[(cf,current_state,next_state)] = 0
-
-				# need to find successors of ID (sID) and connect
-				# ID+timestep*num_IDs to sID+(timestep+1)*num_IDs
-				old_row = self.adj_array[ID]
-				for (ID2, value) in enumerate(old_row):
-					if value == 1 and ID2 != ID:
-						# ID2 is a successor
-						next_neighbor = ID2+(timestep+1)*nontime_IDs
-						#na[(current_state, next_neighbor)] = 1
-						arcs.append((current_state, next_neighbor))
-						added_arcs.append((current_state, next_neighbor))
-
-						for cf in range(cf_num):
-							flow[cf,current_state,next_neighbor] = m.addVar(ub=1.0, obj= 0.0, vtype=GRB.BINARY,
-								name='flow_%s_%s_%s' % (cf, current_state, next_neighbor))
-							added_variables.append((cf,current_state,next_neighbor))
-							costs[(cf,current_state, next_neighbor)] = self.true_costs[(ID,ID2)]
-							if ID2 == startend[cf][1]:
-								costs[(cf,current_state,next_neighbor)] = 0
-		m.update()
-		m = self.add_constraints(m, flow, added_variables, added_arcs,old_time_horizon,time_horizon)
-		return m, flow, arcs, costs
-
-	def add_constraints(self,m,flow,added_variables, added_arcs,old_time_horizon,time_horizon):
-		for i, j in added_arcs:
-			m.addConstr(quicksum(flow[cf,i,j] for cf in range(cf_num)) <= 1.0,
-			name='cap_%s_%s' % (i,j))
-
-		# flow conservation constraints
-		for cf in range(cf_num):
-			for node in range(old_time_horizon*nontime_IDs,time_horizon*nontime_IDs):
-				m.addConstr(quicksum(flow[cf,i,j] for i,j in added_arcs.select('*',node)) ==
-					quicksum(flow[cf,j,k] for j,k in added_arcs.select(node,'*')),
-						'node_%s_%s' % (cf,node))
-
-		for ID1 in range(nontime_IDs):
-		# need to connect ID+timestep*num_IDs to ID+(timestep+1)*num_IDs
-			row = self.adj_array[ID1]
-			for (ID2, value) in enumerate(row):
-				# ID2 > ID1 because we don't want to consider when ID1 == ID2 and
-				# we've already considered the case when ID1 > ID2
-				if value == 1 and ID2 > ID1:
-					id2_row = self.adj_array[ID2]
-					# this is to check that ID1 and ID2 both have edges to each other
-					if id2_row[ID1] == 1:
-						for timestep in range(old_time_horizon,time_horizon):
-							u_t0 = ID1+timestep*nontime_IDs
-							u_t1 = ID1 + (timestep+1)*nontime_IDs
-							v_t0 = ID2 + timestep*nontime_IDs
-							v_t1 = ID2 + (timestep+1)*nontime_IDs
-							m.addConstr(quicksum(flow[cf,u_t0,v_t1] for cf in range(cf_num)) + 
-								quicksum(flow[cf,v_t0,u_t1] for cf in range(cf_num)) <= 1,
-								'head_on_%s_%s' % (u_t0, v_t0))
-
-		# add meet collision constraint
-		for v in range(old_time_horizon*nontime_IDs,time_horizon*nontime_IDs):
-			v_out = added_arcs.select(v,'*')
-			flow_list = []
-			for i,o in v_out:
-				for cf in range(cf_num):
-					flow_list.append((cf,i,o))
-			m.addConstr(quicksum(flow[cf,i,o] for cf,i,o in flow_list) <= 1)
-
-		m.update()
-
-		return m
-
 	def publish_new_paths(self, m=None, flow=None, arcs=None, costs=None, old_startend=None, old_time_horizon = None):
 		planning_start_time = time.time()
 		startend, optimal_paths, min_time_horizon = self.get_initial_path_info()
@@ -738,15 +550,14 @@ class full_system:
 		print str(time.time()) + " about to convert graph"
 
 		if m == None: #then this is your first time planning
-			self.true_costs = edge_costs(self.info_dict, self.adj_array)
 			arcs, costs = convert_graph(self.info_dict,A,startend,self.true_costs,min_time_horizon)
 			print str(time.time()) + " converted graph; about to make model"
-			m, flow = make_model(arcs, costs, startend, self.num_IDs*(min_time_horizon+1),self.model_type,optimal_time_paths,min_time_horizon,self.adj_array)
+			m, flow = make_model(arcs, costs, startend, self.num_IDs*(min_time_horizon),self.model_type,optimal_time_paths,min_time_horizon,self.adj_array)
 		else:
 			self.true_costs = edge_costs(self.info_dict, self.adj_array)
 			arcs, costs = convert_graph(self.info_dict,A,startend,self.true_costs,min_time_horizon)
 			print str(time.time()) + " converted graph; about to make model"
-			m, flow = make_model(arcs, costs, startend, self.num_IDs*(min_time_horizon+1),self.model_type,optimal_time_paths,min_time_horizon,self.adj_array)
+			m, flow = make_model(arcs, costs, startend, self.num_IDs*(min_time_horizon),self.model_type,optimal_time_paths,min_time_horizon,self.adj_array)
 			#m, flow, arcs, costs = self.update_model(m, flow, startend, min_time_horizon, old_startend, old_time_horizon, arcs, costs)
 
 		m.optimize()
@@ -756,10 +567,10 @@ class full_system:
 		self.time_horizon = min_time_horizon
 		while m.status != GRB.Status.OPTIMAL and self.time_horizon < 2*min_time_horizon*cf_num and not rospy.is_shutdown():
 			#old_time_horizon = self.time_horizon
-			#self.time_horizon = self.time_horizon + 1
+			self.time_horizon = self.time_horizon + 1
 			#self.update_model(m, flow, startend, self.time_horizon, old_startend, old_time_horizon, arcs, costs,self.true_costs)
 			arcs, costs = convert_graph(self.info_dict,A,startend,self.true_costs,self.time_horizon)
-			m, flow = make_model(arcs, costs, startend, self.num_IDs*(self.time_horizon+1),self.model_type,optimal_time_paths,self.time_horizon,self.adj_array)
+			m, flow = make_model(arcs, costs, startend, self.num_IDs*(self.time_horizon),self.model_type,optimal_time_paths,self.time_horizon,self.adj_array)
 			m.optimize()
 
 		if m.status == GRB.Status.OPTIMAL:

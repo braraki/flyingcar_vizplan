@@ -27,12 +27,12 @@ def optimal_cost(info_dict, ID1, ID2, air_vel, land_vel, timestep):
 	((fx, fy, fz), fc) = info_dict[ID2]
 	dist_traveled = ((x1-fx)**2 + (y1-fy)**2 + (z1-fz)**2)**.5
 	vel = dist_traveled/timestep
-	hover_energy = 0
-	if c1 != Category.land or c1 != Category.park or c1 != Category.waypoint or c2 != Category.land or c2 != Category.park or c2 != Category.waypoint:
-		hover_energy = 0.5
-	energy_expended = dist_traveled * float(vel) + hover_energy
+	if gen_adj_array_info_dict.is_air(c1) or gen_adj_array_info_dict.is_air(fc):
+		vel = air_vel
+	wait_energy = get_wait_energy(info_dict, ID1, timestep)
+	move_energy = get_move_energy(info_dict, ID1, ID2, timestep, air_vel, land_vel)
 
-	return(TIME_WEIGHT*timestep + ENERGY_WEIGHT*energy_expended)
+	return(TIME_WEIGHT*timestep + ENERGY_WEIGHT*(wait_energy+move_energy))
 
 def get_energy(info_dict, ID1, ID2, travel_time, air_vel, land_vel):
 	((x1, y1, z1),c1) = info_dict[ID1]
