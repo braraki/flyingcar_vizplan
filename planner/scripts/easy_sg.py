@@ -22,7 +22,7 @@ from enum import Enum
 import numpy as np
 
 
-from map_maker import gen_adj_array_info_dict
+from map_maker import map_maker_helper
 '''
 park_dict = {}
 
@@ -116,8 +116,8 @@ def setup_situation(data):
 if __name__ == "__main__":
 	rospy.init_node('easy_sg')
 	#print('test')
-	info_dict = gen_adj_array_info_dict.map_maker_client('send_map')[0]
-	Category = gen_adj_array_info_dict.Category
+	info_dict = map_maker_helper.map_maker_client('send_map')[0]
+	Category = map_maker_helper.Category
 	for ID in info_dict:
 		c = info_dict[ID][1]
 		if c == Category.park:
@@ -139,19 +139,16 @@ class single_fly:
 		self.num_paths = 0
 
 	def set_path(self, end):
-		print('set path')
 		self.start = self.end
 		self.end = end
 		self.num_paths += 1
 
 	def set_first_path(self, start, end):
-		print('set first path')
 		self.start = start
 		self.end = end
 		self.num_paths += 1
 
 	def get_path(self):
-		print('get path')
 		return((self.start, self.end))
 
 class system:
@@ -159,18 +156,15 @@ class system:
 		self.fly_dict = {}
 
 	def response(self, req):
-		print('response')
 		self.update_path(req.cf_ID)
 		(start_ID, end_ID) = self.get_path(req.cf_ID)
 		return situationResponse(start_ID, end_ID)
 
 	def update_path(self, cf_ID):
-		print('update path')
 		f = self.fly_dict[cf_ID]
 		off_limits = []
 		allowed_IDs = park_dict.keys()
 		if f.num_paths == 0:
-			print('why am i here')
 			starts = allowed_IDs[:]
 			ends = allowed_IDs[:]
 			for f2 in self.fly_dict.values():
@@ -194,22 +188,18 @@ class system:
 					if f2.start in ends:
 						ends.remove(f2.start)
 			end = random.choice(ends)
-			print(end)
 			f.set_path(end)
 
 	def get_path(self, cf_ID):
-		print('get path')
 		f = self.fly_dict[cf_ID]
 		return f.get_path()
 
 	def info_sender(self):
-		print('info sender')
 		s = rospy.Service('send_situation', situation, self.response)
 		#print('ready to send info back')
 		#rospy.spin()
 
 	def setup_situation(self, data):
-		print('setup situation')
 		starting_IDs = data.starting_IDs
 		for index in range(len(starting_IDs)):
 			f = single_fly()
@@ -220,8 +210,8 @@ class system:
 if __name__ == "__main__":
 	rospy.init_node('easy_sg')
 	#print('test')
-	info_dict = gen_adj_array_info_dict.map_maker_client('send_map')[0]
-	Category = gen_adj_array_info_dict.Category
+	info_dict = map_maker_helper.map_maker_client('send_map')[0]
+	Category = map_maker_helper.Category
 	for ID in info_dict:
 		c = info_dict[ID][1]
 		if c == Category.park:

@@ -22,7 +22,7 @@ import tf
 
 import thread
 
-from map_maker import gen_adj_array_info_dict
+from map_maker import map_maker_helper
 
 #arguments
 #thickness of the tile (generally)
@@ -792,12 +792,12 @@ if __name__ == "__main__":
 	print('test')
 	rospy.init_node("simple_marker")
 	if waypoint_node_display:
-		info_dict = gen_adj_array_info_dict.map_maker_client('send_complex_map')[0]
-		A = gen_adj_array_info_dict.map_maker_client('send_map')[1]
+		info_dict = map_maker_helper.map_maker_client('send_complex_map')[0]
+		A = map_maker_helper.map_maker_client('send_map')[1]
 	else:
-		(info_dict, A) = gen_adj_array_info_dict.map_maker_client('send_map')
-	(mark_x, mark_y) = gen_adj_array_info_dict.get_marks()
-	Category = gen_adj_array_info_dict.Category
+		(info_dict, A) = map_maker_helper.map_maker_client('send_map')
+	(mark_x, mark_y) = map_maker_helper.get_marks()
+	Category = map_maker_helper.Category
 	ns = node_scape(info_dict, A)
 	#ns.construct()
 	bs = building_scape(ns, mark_x, mark_y)

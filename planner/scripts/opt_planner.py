@@ -21,7 +21,7 @@ from enum import Enum
 import numpy as np
 
 import thread
-from map_maker import gen_adj_array_info_dict
+from map_maker import map_maker_helper
 from planner import planner_helper
 
 from gurobipy import *
@@ -152,13 +152,13 @@ def true_distances(info_dict, adj_array, goal):
 				vel = land_vel
 				# if the ID1 node is an air node, you will definitely travel
 				# to node 2 at air velocity
-				if gen_adj_array_info_dict.is_air(node1_category):
+				if map_maker_helper.is_air(node1_category):
 					vel = air_vel
 				else:
 					# if ID1 is land but it is going to an air node then
 					# vel will be air_vel
 					node2_category = info_dict[ID2][1]
-					if gen_adj_array_info_dict.is_air(node2_category):
+					if map_maker_helper.is_air(node2_category):
 						vel = air_vel
 				time_to_travel = dist_traveled/vel
 				sucs.append((ID2, time_to_travel))
@@ -877,8 +877,8 @@ def waiter(info_dict, A):
 
 if __name__ == "__main__":
 	rospy.init_node('opt_planner', anonymous = True)
-	(info_dict, A) = gen_adj_array_info_dict.map_maker_client('send_complex_map')
-	Category = gen_adj_array_info_dict.Category
+	(info_dict, A) = map_maker_helper.map_maker_client('send_complex_map')
+	Category = map_maker_helper.Category
 	waiter(info_dict, A)
 	#fs = full_system(info_dict, A)
 	rospy.spin()

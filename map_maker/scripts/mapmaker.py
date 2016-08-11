@@ -5,7 +5,7 @@ from map_maker.srv import *
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-from map_maker import gen_adj_array_info_dict
+from map_maker import map_maker_helper
 
 #imported parameters
 map_road_ratio = float(rospy.get_param('/mapmaker/map_road_ratio'))
@@ -38,7 +38,7 @@ for index in range(len(non_fly_list)):
 print(non_fly_list)
 print(map_pre_dict)
 
-Category = gen_adj_array_info_dict.Category
+Category = map_maker_helper.Category
 
 class node:
 	def __init__(self, category, x, y, z = 0, angle = None):

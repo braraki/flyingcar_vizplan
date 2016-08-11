@@ -8,7 +8,7 @@ from planner.msg import *
 
 import random
 
-from map_maker import gen_adj_array_info_dict
+from map_maker import map_maker_helper
 
 park_dict = {}
 
@@ -89,8 +89,8 @@ class system:
 if __name__ == "__main__":
 	rospy.init_node('opt_sg')
 	#print('test')
-	info_dict = gen_adj_array_info_dict.map_maker_client('send_map')[0]
-	Category = gen_adj_array_info_dict.Category
+	info_dict = map_maker_helper.map_maker_client('send_map')[0]
+	Category = map_maker_helper.Category
 	for ID in info_dict:
 		c = info_dict[ID][1]
 		if c == Category.park:

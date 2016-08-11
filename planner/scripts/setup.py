@@ -22,7 +22,7 @@ import numpy as np
 
 import thread
 
-from map_maker import gen_adj_array_info_dict
+from map_maker import map_maker_helper
 
 
 import sys, select, termios, tty
@@ -132,8 +132,8 @@ if __name__ == "__main__":
 	settings = termios.tcgetattr(sys.stdin)
 	#print('test')
 	rospy.init_node('setup', anonymous = True)
-	(info_dict, A) = gen_adj_array_info_dict.map_maker_client('send_complex_map')
-	Category = gen_adj_array_info_dict.Category
+	(info_dict, A) = map_maker_helper.map_maker_client('send_complex_map')
+	Category = map_maker_helper.Category
 	for ID in info_dict:
 		c = info_dict[ID][1]
 		if c == Category.park:

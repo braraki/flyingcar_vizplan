@@ -23,7 +23,7 @@ import thread
 
 #import docx
 
-from map_maker import gen_adj_array_info_dict
+from map_maker import map_maker_helper
 from planner import planner_helper
 #arguments
 
@@ -694,8 +694,8 @@ def waiter(info_dict, A):
 if __name__ == "__main__":
 	print('test')
 	rospy.init_node('highlighter', anonymous = True)
-	(info_dict, A) = gen_adj_array_info_dict.map_maker_client('send_complex_map')
-	Category = gen_adj_array_info_dict.Category
+	(info_dict, A) = map_maker_helper.map_maker_client('send_complex_map')
+	Category = map_maker_helper.Category
 	fill_air_buffer_dict(info_dict)
 	starting_time = time.time()
 	for ID in info_dict:

@@ -8,7 +8,7 @@ import math
 import networkx as nx
 import numpy as np
 
-from map_maker import gen_adj_array_info_dict
+from map_maker import map_maker_helper
 
 #parameter
 ideal_way_point_d = float(rospy.get_param('/complex_map/ideal_way_point_d'))
@@ -171,9 +171,9 @@ class sender:
 if __name__ == "__main__":
 	print('test')
 	rospy.init_node('complex_map_maker_server')
-	(info_dict, A) = gen_adj_array_info_dict.map_maker_client('send_map')
-	(mark_x, mark_y) = gen_adj_array_info_dict.get_marks()
-	Category = gen_adj_array_info_dict.Category
+	(info_dict, A) = map_maker_helper.map_maker_client('send_map')
+	(mark_x, mark_y) = map_maker_helper.get_marks()
+	Category = map_maker_helper.Category
 	#print(info_dict)
 	#if optimal:
 		#(info_dict, A) = remake_cloud(info_dict, A)

@@ -10,7 +10,7 @@ import numpy as np
 
 import thread
 
-from map_maker import gen_adj_array_info_dict
+from map_maker import map_maker_helper
 
 
 #arguments
@@ -182,8 +182,8 @@ class full_system:
 if __name__ == "__main__":
 	#print('test')
 	rospy.init_node("sim_node")	
-	(info_dict, A) = gen_adj_array_info_dict.map_maker_client('send_complex_map')
-	Category = gen_adj_array_info_dict.Category
+	(info_dict, A) = map_maker_helper.map_maker_client('send_complex_map')
+	Category = map_maker_helper.Category
 	fs = full_system(info_dict, A)
 	rospy.spin()
 
