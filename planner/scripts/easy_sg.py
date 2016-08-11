@@ -86,7 +86,7 @@ def generate_spots(cf_ID):
 	if cf_ID in in_use:
 		spots = in_use[cf_ID]
 		start = spots[1]
-		end = select_ID(true_remains, not_start, not_fin, not cf_ID in started, start)
+		end = select_ID(true_remains, not_start, not_fin, False, start)
 	else:
 		start = select_ID(true_remains, not_start, not_fin, True)
 		end = select_ID(true_remains, not_start, not_fin, False, start)
