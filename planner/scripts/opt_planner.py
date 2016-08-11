@@ -646,7 +646,14 @@ class full_system:
 
 		return m, flow, arcs, costs
 
-	def remove_constraints(self,m,flow,removed_variables, removed_arcs,old_time_horizon,time_horizon):
+	def remove_constraints(time_horizon,old_time_horizon):
+		clist = m.getConstrs()
+		for timestep in range(time_horizon, old_time_horizon):
+			for cnum in constraints_per_timestep[timestep]:
+				m.remove(clist[cnum])
+		m.update()
+
+	def remove_constraints_old(self,m,flow,removed_variables, removed_arcs,old_time_horizon,time_horizon):
 		for i, j in removed_arcs:
 			m.remove(m.getConstrByName('cap_%s_%s' % (i,j)))
 

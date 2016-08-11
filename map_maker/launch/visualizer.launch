@@ -44,7 +44,7 @@
     <param name="optimal" value="$(arg optimal)" />
   </node>
   -->
-  <node name="simple_marker" pkg="map_maker" type="nodevisualizer.py" output="screen">
+  <node name="simple_marker" pkg="map_maker" type="nodevisualizer.py">
     <param name="tilethickness" value=".05"/>
     <param name="roadthickness" value=".025"/>
     <param name="parking_frac" value=".7"/>
