@@ -602,6 +602,7 @@ class full_system:
 	#publishes new path when it is necessary
 	#is really doing what runner is supposed to do
 	def double_check(self):
+		rate = rospy.Rate(10)
 		while not rospy.is_shutdown():
 			for sys in self.system_list:
 				if sys.running:
@@ -609,7 +610,7 @@ class full_system:
 						sys.publish_new_path()
 					else:
 						sys.publish_old_path()
-			time.sleep(.1)
+			rate.sleep()
 	'''
 	#response to simulator, updates position accordingly
 	#time update hard coded in, will be a problem

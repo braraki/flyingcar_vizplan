@@ -154,7 +154,6 @@ class full_system:
 				rate.sleep()
 				fake_time += delay
 				reps += 1
-			#time.sleep(.1)
 
 	#path info for a crazyflies first path
 	def collect_info(self, data):

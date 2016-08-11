@@ -384,6 +384,7 @@ class building_scape:
 		self.server.insert(im1, processFeedback)
 		self.server.insert(im2, processFeedback)
 		self.server.insert(im3, processFeedback)
+		rate = rospy.Rate(10)
 		while not rospy.is_shutdown():
 			'''
 			self.server.insert(im1, processFeedback)
@@ -391,7 +392,7 @@ class building_scape:
 			self.server.insert(im3, processFeedback)
 			'''
 			self.server.applyChanges()
-			rospy.sleep(0.1)
+			rate.sleep()
 		#rospy.spin()
 
 class crazyflie:
@@ -780,10 +781,11 @@ class house:
 		house_ID += 1
 
 	def construct(self):
+		rate = rospy.Rate(10)
 		while not rospy.is_shutdown():
 			self.broadcaster.sendTransform((self.x, self.y, self.z - roadthickness),
 				tf.transformations.quaternion_from_euler(0, 0, self.theta), rospy.Time.now(), "house"+str(self.ID)+"/whole", "base_link")
-			time.sleep(.1)
+			rate.sleep()
 		#self.broadcaster.publishFixedTransforms()
 
 if __name__ == "__main__":

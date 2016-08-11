@@ -20,7 +20,7 @@
     <param name="buffer_z_frac" value=".5" />
   </node>
 
-  <node name="easy_sg" pkg="planner" type="easy_sg.py"/>
+  <node name="easy_sg" pkg="planner" type="easy_sg.py" output="screen"/>
 
   <node name="setup" pkg="planner" type="setup.py" output="screen">
     <param name="cf_num" value="$(arg cf_num)" />

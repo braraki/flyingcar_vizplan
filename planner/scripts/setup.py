@@ -99,17 +99,18 @@ def setter():
 	IDPub = rospy.Publisher('~StartingID_topic', setup_IDs, queue_size = 10)
 	StartPub = rospy.Publisher('~Starter', Bool, queue_size = 10)
 	#waits so that subscriber will recieve message
-	time.sleep(1)
 	print('Are you ready to begin, if so type Y: ')
 	go = 'N'
+	reps = 0
 	while go != 'Y' and go != 'y':
-		if not rospy.is_shutdown():
+		if not rospy.is_shutdown() and reps%10 == 0:
 			PosPub.publish(x_list, y_list, z_list)
 			IDPub.publish(starting_IDs)
-		else:
+		elif rospy.is_shutdown():
 			break
 		#go = raw_input('Are you ready to begin, if so type Y: ')
 		go = get_key()
+		reps += 1
 	StartPub.publish(True)
 
 
