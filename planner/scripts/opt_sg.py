@@ -80,8 +80,10 @@ class system:
 			f.set_first_path(start, end)
 		else:
 			ends = allowed_IDs[:]
+			'''
 			if f.end in ends:
 				ends.remove(f.end)
+			'''
 			for f2 in self.fly_dict.values():
 				if f2.num == f.num + 1:
 					if f.end in ends:
