@@ -90,9 +90,9 @@ class system:
 					if f2.end in ends:
 						ends.remove(f2.end)
 			print(ends)
-			end = random.choice(ends)
-			if len(end) > 1 and f.end in ends:
+			if len(ends) > 1 and f.end in ends:
 				ends.remove(f.end)
+			end = random.choice(ends)
 			print(end)
 			f.set_path(end)
 
