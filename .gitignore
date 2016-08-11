@@ -1,6 +1,11 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
-*.py[cod]
+#*.py[cod]
+
+*.pyc
+*.pyo
+*.pyd
+
 *$py.class
 
 **/duckietown.rviz
@@ -89,3 +94,6 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+#ROS BAG FILES
+*.bag

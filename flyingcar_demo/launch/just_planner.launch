@@ -17,6 +17,8 @@
   <remap from="simple_marker/SimPos_topic" to="simulator/SimPos_topic" />
   <remap from="simulator/Start_SimPos_topic" to="setup/Start_SimPos_topic" />
 
+  <include file="$(find map_maker)/launch/sim.launch"/>
+
   <include file="$(find map_maker)/launch/non_vis.launch">
   	<arg name="cf_num" value="$(arg cf_num)" />
   	<arg name="map" value="$(arg map)" />
