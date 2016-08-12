@@ -7,48 +7,25 @@ from map_maker.msg import *
 from planner.srv import *
 from planner.msg import *
 
-from interactive_markers.interactive_marker_server import *
-from visualization_msgs.msg import *
-from geometry_msgs.msg import Point
-
-import math
-import matplotlib.pyplot as plt
-import time
 import random
 
-import networkx as nx
-from enum import Enum
-import numpy as np
-
-import thread
-
 from map_maker import map_maker_helper
-
 
 import sys, select, termios, tty
 
 cf_num = int(rospy.get_param('/setup/cf_num'))
 centered = bool(rospy.get_param('/setup/centered'))
 
-
-
-
 set_start = False
 start_list = []
 
-
 park_dict = {}
-
-
 
 def set_IDs():
 	starting_IDs = []
 	for cf in range(cf_num):
 		starting_IDs.append(set_ID(starting_IDs, cf))
 	return(starting_IDs)
-
-
-
 
 def set_ID(used, cf_num):
 	if set_start:
@@ -73,8 +50,6 @@ def set_ID(used, cf_num):
 			ID = random.choice(park_dict.keys())
 			if ID not in used:
 				return(ID)
-
-
 
 def least_distance(point, used):
 	(x, y, z) = point
@@ -112,8 +87,6 @@ def setter():
 		reps += 1
 	StartPub.publish(True)
 
-
-
 def get_key():
 	tty.setraw(sys.stdin.fileno())
 	r_list, _, _ = select.select([sys.stdin], [], [], .1)
@@ -123,9 +96,6 @@ def get_key():
 		key = ''
 	termios.tcsetattr(sys.stdin, termios.TCSADRAIN, settings)
 	return(key)
-
-
-
 
 if __name__ == "__main__":
 	settings = termios.tcgetattr(sys.stdin)

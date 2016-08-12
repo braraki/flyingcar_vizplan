@@ -145,21 +145,15 @@ class sender:
 		for fl in A4:
 			self.A5.append(int(fl))
 
-		coordinate_list = [None]*len(info_dict)
-		self.x_list = [None]*len(info_dict)
-		self.y_list = [None]*len(info_dict)
-		self.z_list = [None]*len(info_dict)
-		self.category_list = [None]*len(info_dict)
+		self.num_nodes = len(info_dict)
+		coordinate_list = [None]*self.num_nodes
+		self.x_list = [None]*self.num_nodes
+		self.y_list = [None]*self.num_nodes
+		self.z_list = [None]*self.num_nodes
+		self.category_list = [None]*self.num_nodes
 
 		for ID in info_dict:
-			coor = info_dict[ID][0]
-			self.x_list[ID] = coor[0]
-			self.y_list[ID] = coor[1]
-			self.z_list[ID] = coor[2]
-			cat = info_dict[ID][1]
-			self.category_list[ID] = int(cat)
-
-		self.num_nodes = len(info_dict)
+			((self.x_list[ID], self.y_list[ID], self.z_list[ID]), self.category_list[ID]) = info_dict[ID]
 
 	def response(self, req):
 		return MapTalkResponse(self.category_list, self.x_list, self.y_list, self.z_list, self.num_nodes, self.A5, self.mark_x, self.mark_y)
@@ -174,11 +168,7 @@ if __name__ == "__main__":
 	(info_dict, A) = map_maker_helper.map_maker_client('send_map')
 	(mark_x, mark_y) = map_maker_helper.get_marks()
 	Category = map_maker_helper.Category
-	#print(info_dict)
-	#if optimal:
-		#(info_dict, A) = remake_cloud(info_dict, A)
 	analysis = get_new_info(info_dict, A)
 	s = sender(analysis[0], analysis[1], mark_x, mark_y)
-	#s = sender(info_dict, A)
 	s.info_sender()
 	rospy.spin()
