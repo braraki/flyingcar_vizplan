@@ -225,7 +225,7 @@ class OptModel:
 
 	def optimize(self):
 		self.m.optimize()
-		return self.m, self.flow
+		return self.m
 
 	def convert_graph(self):
 		costs = {}
@@ -293,6 +293,64 @@ class OptModel:
 		m.update()
 		return m, flow
 
+	def remove_loopback_constraints(self, m):
+		for i in range(len(self.startend)):
+			f,l = self.arcs[i]
+			m.remove(m.getConstrByName('loopback_filled_%s' % (i)))
+			for cf in range(cf_num):
+				if cf != i:
+					m.remove(m.getConstrByName('loopback_cap_%s_%s_%s' % (cf,f,l)))
+		return m
+
+	def remove_loopback_variables(self, m, flow, arcs):
+		# remove flow variables, arc edges and model variables
+		# note that there is one arc edge per loopback edge
+		# but there are cf_num flow var and model var per loopback edge
+		for i in range(len(self.startend)):
+			f,l = arcs.pop(0)
+			for cf in range(cf_num):
+				m.remove(flow[cf,f,l])
+				del flow[(cf,f,l)]
+			print "removed loopback arcs " + str(f) + " " + str(l)
+
+		return m, flow, arcs
+
+	def add_new_loopback_variables(self, m, flow, arcs, new_startend):
+		for i in range(len(new_startend)):
+			f, l = new_startend[i]
+			arcs.insert(0,(f,l))
+			for cf in range(cf_num):
+				flow[cf,f,l] = m.addVar(ub=1.0, obj=0.0, vtype=GRB.BINARY,
+					name='flow_%s_%s_%s' % (cf,f,l))
+
+		return m, flow, arcs
+
+	def add_new_loopback_constraints(self, m, flow, arcs):
+		for i in range(cf_num):
+			f,l = arcs[i]
+			for cf in range(cf_num):
+				if cf != i:
+					m.addConstr(flow[cf,f,l] == 0,
+						'loopback_cap_%s_%s_%s' % (cf,f,l))
+			m.addConstr(flow[i,f,l] == 1, 'loopback_filled_%s' %(i))
+		return m
+
+	def update_loopback(self, new_startend):
+		new_m = self.remove_loopback_constraints(self.m)
+		new_m = self.remove_constraints(new_m, range(len(self.startend)))
+		new_m, new_flow, new_arcs = self.remove_loopback_variables(new_m,self.flow,self.arcs)
+		new_m, new_flow, new_arcs = self.add_new_loopback_variables(new_m, new_flow, new_arcs, new_startend)
+		new_m.update()
+		new_m = self.add_new_loopback_constraints(new_m, new_flow, new_arcs)
+		new_m = self.add_capacity_constraints(new_m, new_flow, new_arcs,range(len(self.startend)))
+		new_m = self.add_meet_collision_constraints(new_m, new_flow, new_arcs,range(len(self.startend)))
+		new_m = self.add_flow_conservation_constraints(new_m, new_flow, new_arcs,range(len(self.startend)))
+		new_m.update()
+		self.m = new_m
+		self.flow = new_flow
+		self.arcs = new_arcs
+		self.startend = new_startend
+
 	def add_loopback_capacity_constraints(self, m, flow):
 		# add capacity constraint on each loopback arc
 		# aka, only robot i can pass through loopback arc i
@@ -306,31 +364,76 @@ class OptModel:
 						'loopback_cap_%s_%s_%s' % (cf,s,e))
 		return m
 
-	def add_capacity_constraints(self, m, flow):
+	def remove_constraints(self, m, var_list):
+		m = self.remove_capacity_constraints(m, var_list)
+		m = self.remove_meet_collision_constraints(m, var_list)
+		m = self.remove_flow_conservation_constraints(m, var_list)
+		m = self.remove_head_on_collision_constraints(m, var_list)
+		return m
+
+	def remove_capacity_constraints(self, m, var_list):
+		for arc in var_list:
+			i,j = self.arcs[arc]
+			m.remove(m.getConstrByName('cap_%s_%s' % (i,j)))
+		return m
+
+	def remove_meet_collision_constraints(self, m, var_list):
+		for v in var_list:
+			v_out = self.arcs.select(v,'*')
+			if v_out != []:
+				m.remove(m.getConstrByName('meet_%s' % (v)))
+		return m
+
+	def remove_flow_conservation_constraints(self, m, var_list):
+		for cf in range(cf_num):
+			for node in var_list:
+				m.remove(m.getConstrByName('node_%s_%s' % (cf, node)))
+		return m
+
+	def remove_head_on_collision_constraints(self, m, var_list):
+		for ID1 in var_list:
+		# need to connect ID+timestep*num_IDs to ID+(timestep+1)*num_IDs
+			row = self.adj_array[ID1]
+			for (ID2, value) in enumerate(row):
+				# ID2 > ID1 because we don't want to consider when ID1 == ID2 and
+				# we've already considered the case when ID1 > ID2
+				if value == 1 and ID2 > ID1:
+					id2_row = self.adj_array[ID2]
+					# this is to check that ID1 and ID2 both have edges to each other
+					if id2_row[ID1] == 1:
+						for timestep in range(self.time_horizon):
+							u_t0 = ID1+timestep*self.num_IDs
+							v_t0 = ID2 + timestep*self.num_IDs
+							#for cf in range(cf_num):
+							m.remove(m.getConstrByName('head_on_%s_%s' % (u_t0, v_t0)))
+		return m
+
+	def add_capacity_constraints(self, m, flow, arcs,var_list):
 		# add capacity constraint on each arc
 		# one robot max per arc
 		# not added to loopback arcs anymore. not necessary. IT IS NECESSARY
-		for i, j in self.arcs:
+		for node in var_list:
+			i, j = arcs[node]
 			m.addConstr(quicksum(flow[cf,i,j] for cf in range(cf_num)) <= 1.0,
 				name='cap_%s_%s' % (i,j))
 		return m
 
-	def add_meet_collision_constraints(self, m, flow):
-		for v in range(cf_num,self.num_arcs):
-			v_out = self.arcs.select(v,'*')
+	def add_meet_collision_constraints(self, m, flow, arcs,var_list):
+		for v in var_list:
+			v_out = arcs.select(v,'*')
 			flow_list = []
 			for i,o in v_out:
 				for cf in range(cf_num):
 					flow_list.append((cf,i,o))
 			m.addConstr(quicksum(flow[cf,i,o] for cf,i,o in flow_list) <= 1,
-				'meet_%s_%s' % (v, o))
+				'meet_%s' % (v))
 		return m
 
-	def add_flow_conservation_constraints(self, m, flow):
+	def add_flow_conservation_constraints(self, m, flow, arcs,var_list):
 		for cf in range(cf_num):
-			for node in range(self.num_arcs):
-				m.addConstr(quicksum(flow[cf,i,j] for i,j in self.arcs.select('*',node)) ==
-					quicksum(flow[cf,j,k] for j,k in self.arcs.select(node,'*')),
+			for node in var_list:
+				m.addConstr(quicksum(flow[cf,i,j] for i,j in arcs.select('*',node)) ==
+					quicksum(flow[cf,j,k] for j,k in arcs.select(node,'*')),
 						'node_%s_%s' % (cf,node))
 		return m
 
@@ -365,13 +468,13 @@ class OptModel:
 		print str(time.time()) + " added variables to model"
 
 		m = self.add_loopback_capacity_constraints(m, flow)
-		m = self.add_capacity_constraints(m, flow)
+		m = self.add_capacity_constraints(m, flow, self.arcs, range(self.num_arcs))
 		print str(time.time()) + " added capacity constraints"
 
-		m = self.add_meet_collision_constraints(m, flow)
+		m = self.add_meet_collision_constraints(m, flow, self.arcs, range(self.num_arcs))
 		print str(time.time()) + " added meet collison constraints"
 
-		m = self.add_flow_conservation_constraints(m, flow)
+		m = self.add_flow_conservation_constraints(m, flow, self.arcs, range(self.num_arcs))
 		print str(time.time()) + " added flow conservation constraints"
 
 		m = self.add_head_on_collision_constraints(m, flow)
@@ -519,10 +622,11 @@ class full_system:
 
 		if m == None: #then this is your first time planning
 			model = OptModel(self.info_dict, self.adj_array, startend, min_time_horizon, self.true_costs, self.model_type)
+			model.update_loopback(startend)
 		else:
 			model = OptModel(self.info_dict, self.adj_array, startend, min_time_horizon, self.true_costs, self.model_type)
 
-		m, flow = model.optimize()
+		m = model.optimize()
 
 		print str(time.time()) + " optimization finished"
 
@@ -532,7 +636,7 @@ class full_system:
 			self.time_horizon = self.time_horizon + 1
 			#self.update_model(m, flow, startend, self.time_horizon, old_startend, old_time_horizon, arcs, costs,self.true_costs)
 			model = OptModel(self.info_dict, self.adj_array, startend, self.time_horizon, self.true_costs, self.model_type)
-			m, flow = model.optimize()
+			m = model.optimize()
 
 		if m.status == GRB.Status.OPTIMAL:
 			old_startend = startend
