@@ -19,7 +19,7 @@
 
   <include file="$(find map_maker)/launch/sim.launch"/>
 
-  <include file="$(find map_maker)/launch/non_vis.launch">
+  <include file="$(find map_maker)/launch/map_setup.launch">
   	<arg name="cf_num" value="$(arg cf_num)" />
   	<arg name="map" value="$(arg map)" />
     <arg name="land_vel" value="$(arg land_vel)" />

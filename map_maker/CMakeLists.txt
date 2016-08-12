@@ -48,8 +48,6 @@ catkin_python_setup()
  add_message_files(
    FILES
    Num.msg
-   HiPath.msg
-   HiPathTime.msg
    SimPos.msg
    PassangerIDs.msg
  )
@@ -57,7 +55,6 @@ catkin_python_setup()
 ## Generate services in the 'srv' folder
  add_service_files(
    FILES
-   AddTwoInts.srv
    MapTalk.srv
  )
 

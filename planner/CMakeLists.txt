@@ -48,6 +48,8 @@ catkin_python_setup()
  add_message_files(
    FILES
    setup_IDs.msg
+   HiPath.msg
+   HiPathTime.msg
 #   Message2.msg
  )
 
