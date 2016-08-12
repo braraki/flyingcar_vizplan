@@ -73,7 +73,7 @@ def test_distance(x_list, y_list, z_list):
 			grounded.append((x, y, z))
 
 #controls single crazyflie
-class system:
+class flie:
 	def __init__(self, info_dict, adjacency_array, path, times, ID):
 		self.info_dict = info_dict
 		self.adjacency_array = adjacency_array
@@ -112,7 +112,7 @@ class full_system:
 		self.adjacency_array = adjacency_array
 		self.pub = rospy.Publisher('~SimPos_topic', SimPos, queue_size = 10)
 		self.go = False
-		self.system_list = []
+		self.flie_list = []
 		self.x_list = []
 		self.y_list = []
 		self.z_list = []
@@ -125,7 +125,7 @@ class full_system:
 	def act(self, data):
 		if not self.go:
 			self.collect_info(data)
-		sys = self.system_list[data.ID]
+		sys = self.flie_list[data.ID]
 		sys.new_path(data.path, data.times)
 
 	#sends constant position messages (thread)
@@ -137,8 +137,8 @@ class full_system:
 		reps = 0
 		while not rospy.is_shutdown():
 			actual_time = time.time()
-			for index in range(len(self.system_list)):
-				sys = self.system_list[index]
+			for index in range(len(self.flie_list)):
+				sys = self.flie_list[index]
 				if sys != None:
 
 					'''if you switch the comments for the loc line, you should be able to go
@@ -159,13 +159,13 @@ class full_system:
 	def collect_info(self, data):
 		if self.cf_num == None:
 			self.cf_num = data.num_IDs
-			self.system_list = [None]*self.cf_num
+			self.flie_list = [None]*self.cf_num
 			self.x_list = [None]*self.cf_num
 			self.y_list = [None]*self.cf_num
 			self.z_list = [None]*self.cf_num
-		sys = system(self.info_dict, self.adjacency_array, data.path, data.times, data.ID)
-		self.system_list[data.ID] = sys
-		if None not in self.system_list:
+		f = flie(self.info_dict, self.adjacency_array, data.path, data.times, data.ID)
+		self.flie_list[data.ID] = f
+		if None not in self.flie_list:
 			self.go = True
 			if not self.running:
 				thread.start_new_thread( self.sub_run, ())
@@ -175,7 +175,7 @@ class full_system:
 		self.x_list = list(data.x)
 		self.y_list = list(data.y)
 		self.z_list = list(data.z)
-		self.system_list = [None]*self.cf_num
+		self.flie_list = [None]*self.cf_num
 		if not self.running:
 			thread.start_new_thread( self.sub_run, ())
 
