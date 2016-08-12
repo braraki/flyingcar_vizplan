@@ -50,6 +50,7 @@ catkin_python_setup()
    setup_IDs.msg
    HiPath.msg
    HiPathTime.msg
+   reserved_IDs.msg
 #   Message2.msg
  )
 

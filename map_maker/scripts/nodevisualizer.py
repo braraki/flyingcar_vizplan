@@ -4,6 +4,8 @@ import rospy
 
 from map_maker.srv import *
 from map_maker.msg import *
+from planner.srv import *
+from planner.msg import *
 
 from interactive_markers.interactive_marker_server import *
 from visualization_msgs.msg import *
@@ -57,6 +59,7 @@ class visual_node:
 		if category != None:
 			self.categorize(category)
 		self.tile = None
+		self.reserved = False
 
 	def add_successor(self, node):
 		if node not in self.successors:
@@ -86,8 +89,12 @@ class visual_node:
 		n_marker.scale.x = .05
 		n_marker.scale.y = .05
 		n_marker.scale.z = .05
-		(n_marker.color.r, n_marker.color.g, n_marker.color.b) = self.color	
-		n_marker.color.a = .5
+		if not self.reserved:
+			(n_marker.color.r, n_marker.color.g, n_marker.color.b) = self.color	
+			n_marker.color.a = .5
+		else:
+			(n_marker.color.r, n_marker.color.g, n_marker.color.b) = (0, 0, 0)
+			n_marker.color.a = 1
 		n_marker.pose.position.x = self.x
 		n_marker.pose.position.y = self.y
 		n_marker.pose.position.z = self.z
@@ -200,6 +207,7 @@ class building_scape:
 		rospy.Subscriber('~time_path_topic', HiPathTime, self.respond)
 		rospy.Subscriber('~SimPos_topic', SimPos, self.pos_respond)
 		rospy.Subscriber('~Start_SimPos_topic', SimPos, self.pos_respond)
+		rospy.Subscriber('~reserved_IDs_topic', reserved_IDs, self.show_reserved)
 
 	#does all of the tile work (roadratio, flyable, etc.)
 	def build_tiles(self):
@@ -279,7 +287,16 @@ class building_scape:
 				cf.construct_flie()
 		self.server.applyChanges()
 
-	def construct(self):
+	def show_reserved(self, data):
+		reserved = data.reserved_IDs
+		for n in self.node_scape.node_dict.values():
+			n.reserved = False
+		for r in reserved:
+			n = self.node_scape.node_dict[r]
+			n.reserved = True
+		self.construct_nodes()
+
+	def construct_nodes(self):
 		# create an interactive marker for our server
 		n_int_marker = InteractiveMarker()
 		n_int_marker.header.frame_id = "base_link"
@@ -290,6 +307,13 @@ class building_scape:
 				n_int_marker = n.construct(n_int_marker)
 			elif n.category != Category.cloud and n.category != Category.interface:
 				n_int_marker = n.construct(n_int_marker)
+
+		self.server.insert(n_int_marker, processFeedback)
+		self.server.applyChanges()
+
+	def construct(self):
+		# create an interactive marker for our server
+		self.construct_nodes()
 
 		e_int_marker = InteractiveMarker()
 		e_int_marker.header.frame_id = "base_link"
@@ -312,7 +336,6 @@ class building_scape:
 		for t in tiles:
 			t_int_marker = t.construct(t_int_marker)
 
-		self.server.insert(n_int_marker, processFeedback)
 		self.server.insert(e_int_marker, processFeedback)
 		self.server.insert(t_int_marker, processFeedback)
 		rate = rospy.Rate(10)
