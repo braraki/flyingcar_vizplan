@@ -27,10 +27,10 @@ def optimal_cost(info_dict, ID1, ID2, air_vel, land_vel, timestep):
 	((fx, fy, fz), fc) = info_dict[ID2]
 	dist_traveled = ((x1-fx)**2 + (y1-fy)**2 + (z1-fz)**2)**.5
 	vel = dist_traveled/timestep
-	if gen_adj_array_info_dict.is_air(c1) or gen_adj_array_info_dict.is_air(fc):
+	if map_maker_helper.is_air(c1) or map_maker_helper.is_air(fc):
 		vel = air_vel
 	wait_energy = get_wait_energy(info_dict, ID1, timestep)
-	move_energy = get_move_energy(info_dict, ID1, ID2, timestep, air_vel, land_vel)
+	move_energy = get_move_energy_opt(info_dict, ID1, ID2, timestep, air_vel, land_vel)
 
 	return(TIME_WEIGHT*timestep + ENERGY_WEIGHT*(wait_energy+move_energy))
 
@@ -57,6 +57,18 @@ def get_wait_energy(info_dict, ID1, wait_time):
 	else:
 		wait_energy_expenditure = .05
 	return(wait_time * wait_energy_expenditure)
+
+def get_move_energy_opt(info_dict, ID1, ID2, move_time, air_vel, land_vel):
+	((x1, y1, z1),c1) = info_dict[ID1]
+	((fx, fy, fz), fc) = info_dict[ID2]
+	dist_traveled = ((x1-fx)**2 + (y1-fy)**2 + (z1-fz)**2)**.5
+	if map_maker_helper.is_air(c1) or map_maker_helper.is_air(fc):
+		const_energy_expenditure = .5
+	else:
+		const_energy_expenditure = .125
+	TE = const_energy_expenditure*dist_traveled
+	PE = max((fz-z1), 0)*cf_mass*9.8
+	return(TE + PE)
 
 def get_move_energy(info_dict, ID1, ID2, move_time, air_vel, land_vel):
 	((x1, y1, z1),c1) = info_dict[ID1]
