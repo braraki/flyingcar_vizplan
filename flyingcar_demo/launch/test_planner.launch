@@ -37,30 +37,4 @@
     <arg name="land_vel" default="$(arg land_vel)" />  
   </include>
 
-  <!--
-   <include file="$(find map_maker)/launch/non_vis.launch">
-    <arg name="cf_num" value="$(arg cf_num)" />
-    <arg name="map" value="$(arg map)" />
-    <arg name="land_vel" value="$(arg land_vel)" />
-    <arg name="air_vel" value="$(arg air_vel)" />
-    <arg name="time_step" default=".5" />
-    <arg name="optimal" default="True" />
-  </include>
-
-  <include file="$(find planner)/launch/$(arg planner).launch">
-    <arg name="cf_num" value="$(arg cf_num)"/>
-    <arg name="z_coefficient" value="$(arg z_coefficient)"/>
-    <arg name="continuous" value="$(arg continuous)" />
-    <arg name="land_vel" value="$(arg land_vel)" />
-    <arg name="air_vel" value="$(arg air_vel)" />
-  </include>
-  -->
-  
-  <!--
-  <node name="recorder" pkg="flyingcar_demo" type="recorder.py" output="screen" />
-  -->
-  <!--
-  <node name="record_path" pkg="rosbag" type="record" args="-o $(find flyingcar_demo)/rosbag_files/path.rosbag $(arg planner)/time_path_topic" output="screen" />
-  <node name="record_pos" pkg="rosbag" type="record" args="-o $(find flyingcar_demo)/rosbag_files/poses.rosbag simulator/SimPos_topic" output="screen" />
-  -->
 </launch>

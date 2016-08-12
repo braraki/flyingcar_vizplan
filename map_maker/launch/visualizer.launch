@@ -7,43 +7,8 @@
   <arg name="land_vel" default=".25" />
   <arg name="time_step" default=".5" />
 
-
-  <!--
-  <include file="$(find map_maker)/launch/non_vis.launch">
-    <arg name="cf_num" value="$(arg cf_num)" />
-    <arg name="map" value="$(arg map)" />
-    <arg name="land_vel" value="$(arg land_vel)" />
-    <arg name="air_vel" value="$(arg air_vel)" />
-    <arg name="time_step" default="$(arg time_step)" />
-    <arg name="optimal" default="$(arg optimal)" />
-  </include>
--->
-
   <node name="foo" pkg="map_maker" type="make_rviz.sh" args="$(find map_maker) $(arg cf_num) $(arg map) $(arg buildings)"/>
 
-  <!-- <node name="mapmaker" pkg="map_maker" type="mapmaker.py" output="screen">
-    <param name="map_road_ratio" value=".5"/>
-    <param name="map_tile_size" value=".5"/>
-    <param name="map_interface_height" value=".75"/>
-    <param name="map_cloud_height" value="1.25"/>
-    <param name="map_num_cloud_layers" value="1"/>
-    <param name="map_cloud_layer_dist" value=".5"/>
-    <param name="map_cloud_density" value="3"/>
-    <param name="helipad_height" value=".25"/>
-    <param name="air_vel" value="$(arg air_vel)" />
-    <param name="time_step" value="$(arg time_step)" />
-    <param name="optimal" value="$(arg optimal)" />
-    <rosparam command="load" file="$(find map_maker)/config/$(arg map).yaml" />
-  </node>
-
-  <node name="complex_map" pkg="map_maker" type="complex_map.py" output="screen">
-    <param name="ideal_way_point_d" value=".15"/>
-    <param name="land_vel" value="$(arg land_vel)" />
-    <param name="air_vel" value="$(arg air_vel)" />
-    <param name="time_step" value="$(arg time_step)" />
-    <param name="optimal" value="$(arg optimal)" />
-  </node>
-  -->
   <node name="simple_marker" pkg="map_maker" type="nodevisualizer.py">
     <param name="tilethickness" value=".05"/>
     <param name="roadthickness" value=".025"/>

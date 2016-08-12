@@ -1,6 +1,5 @@
 <?xml version="1.0"?>
 <launch>
-
 	<node name="simulator" pkg="map_maker" type="simulator.py" output="screen">
     	<param name="delay" value=".05"/>
   	</node>
