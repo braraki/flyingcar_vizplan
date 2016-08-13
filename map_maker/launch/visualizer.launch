@@ -18,7 +18,7 @@
     <param name="buildings" value="$(arg buildings)"/>
   </node>
 
-  <param name="robot_description" command="$(find xacro)/xacro '$(find map_maker)/urdf/crazyflie2.urdf.xacro'"/>
+  <param name="robot_description" command="$(find xacro)/xacro '$(find map_maker)/urdf/my_crazyflie.urdf.xacro'"/>
 
   <param name="house1_description" command="$(find xacro)/xacro '$(find map_maker)/urdf/house1.urdf.xacro'"/>  
   <param name="house2_description" command="$(find xacro)/xacro '$(find map_maker)/urdf/house2.urdf.xacro'"/>  

@@ -5,29 +5,12 @@ from std_msgs.msg import Bool
 from map_maker.srv import *
 from map_maker.msg import *
 from planner.srv import *
+from planner.msg import *
 
-from interactive_markers.interactive_marker_server import *
-from visualization_msgs.msg import *
-from geometry_msgs.msg import Point
-
-import math
-import matplotlib.pyplot as plt
 import time
-import random
-
-import networkx as nx
-from enum import Enum
-import numpy as np
-
-import thread
-
-#import docx
 
 from map_maker import map_maker_helper
 from planner import planner_helper
-#arguments
-
-used_park_IDs = []
 
 cf_num = int(rospy.get_param('/si_planner/cf_num'))
 z_coefficient = float(rospy.get_param('/si_planner/z_coefficient'))
@@ -36,6 +19,7 @@ land_vel = float(rospy.get_param('/si_planner/land_vel'))
 air_vel = float(rospy.get_param('/si_planner/air_vel'))
 air_buffer_dist = float(rospy.get_param('/si_planner/air_buffer_dist'))
 buffer_z_frac = float(rospy.get_param('/si_planner/buffer_z_frac'))
+show_reserved = bool(rospy.get_param('/si_planner/show_reserved'))
 
 si_dict = {}
 
@@ -51,11 +35,8 @@ count = 0
 #current_time = 0.0
 space_time = .75
 planning_time = 2
-wait_time = .1
-extra_time = 0
 
 best_heur = True
-#doc = docx.Document()
 
 
 class SearchNode:
@@ -142,11 +123,6 @@ def a_star(info_dict, successors, start_state, start_voltage, goal_test, heurist
 		if cont:
 			if goal_test(parent.state, parent.time):
 				print(parent.path())
-				#doc.add_paragraph('time to plan')
-				#doc.save('path_planning_results.docx')
-				#doc.add_paragraph(str(planning_end_time - planning_start_time))
-				#doc.add_paragraph(str(parent.path()))
-				#doc.add_paragraph(' ')
 				return (parent.path(), parent.voltage)
 			for child_state, t, v, cost, interval in successors(parent.state, parent.time, parent.voltage, parent.interval):
 				ID = child_state
@@ -197,7 +173,7 @@ def find_start_interval(state, time):
 	my_intervals = si_dict[state]
 	my_interval = None
 	for i in my_intervals:
-		if i[0] - (extra_time + .1) <= time <= i[1]:
+		if i[0] - .1 <= time <= i[1]:
 			#print(i)
 			return(i)
 	print('interval not found')
@@ -248,14 +224,24 @@ def true_costs(info_dict, adj_array, goal):
 
 
 
-
-
+def get_reserved_IDs():
+	t = time.time()
+	reserved = []
+	for ID in si_dict:
+		for interval in si_dict[ID]:
+			found = False
+			if interval[0] < t < interval[1]:
+				found = True
+				break
+		if not found:
+			reserved.append(ID)
+	return(reserved)
 
 
 
 
 #single crazyflie
-class system:
+class flie:
 	def __init__(self, adj_array, info_dict, cf_ID, pubTime):
 		self.adj_array = adj_array
 		self.info_dict = info_dict
@@ -276,29 +262,6 @@ class system:
 		self.running = True
 
 	def generate_random_path(self):
-		'''
-		global used_park_IDs
-		if self.end_pos == None:
-			unfound = True
-			while unfound:
-				ID1 = random.choice(self.park_IDs)
-				if ID1 not in used_park_IDs:
-					used_park_IDs.append(ID1)
-					unfound = False
-		else:
-			for id in self.info_dict:
-				if self.info_dict[id][0] == self.end_pos:
-					ID1 = id
-					break
-		unfound = True
-		while unfound:
-			ID2 = random.choice(self.park_IDs)
-			if ID2 != ID1:
-				unfound = False
-		self.end_pos = self.info_dict[ID2][0]
-		p = self.find_path(ID1, ID2)
-		return(p)
-		'''
 		(ID1, ID2) = self.request_situation()
 		self.end_pos = self.info_dict[ID2][0]
 		p_info = self.find_path(ID1, ID2)
@@ -310,7 +273,6 @@ class system:
 	def request_situation(self):
 		global count
 		print(count)
-		#doc.add_paragraph(str(count))
 		count += 1
 		#print('situation asking')
 		rospy.wait_for_service('send_situation')
@@ -362,16 +324,6 @@ class system:
 			c1 = self.info_dict[state][1]
 			sucs = []
 			row = self.adj_array[state]
-			'''
-			my_intervals = si_dict[state]
-			my_interval = None
-			for i in my_intervals:
-				if i[0] <= time <= i[1]:
-					my_interval = i
-			if my_interval == None:
-				print('interval not found')
-				print(si_dict[state])
-			'''
 			for (ID2, value) in enumerate(row):
 				if value == 1:
 					if ID2 != state:
@@ -428,7 +380,7 @@ class system:
 			if end_ID == state:
 				safe_intervals = si_dict[state]
 				for interval in safe_intervals:
-					if interval[0] + space_time< t < interval[1] - (space_time + planning_time + extra_time):
+					if interval[0] + space_time< t < interval[1] - (space_time + planning_time):
 						return  True
 			return(False)
 
@@ -453,25 +405,7 @@ class system:
 			return(path, total_planning_time)
 		else:
 			self.kill(ID1)
-	'''
-	def update_cf_pos(self, pos):
-		#print('position updated: '+str(pos))
-		self.cf_pos = pos
-		if self.is_finished():
-			self.publish_new_path()
-	'''
-	'''
-	def is_finished(self):
-		if self.cf_pos == self.end_pos:
-			return(True)
-		if self.end_pos != None and self.cf_pos != None:
-			(x1, y1, z1) = self.cf_pos
-			(x2, y2, z2) = self.end_pos
-			dist = ((x2-x1)**2+(y2-y1)**2+(z2-z1)**2)**.5
-			#print(dist)
-			return(dist < .02)
-		return(False)
-	'''
+
 	#kills path, cf will stop moving, sends almost empty path
 	def kill(self, end_ID):
 		self.running = False
@@ -546,7 +480,7 @@ class system:
 							high_split = t + space_time
 							if last:
 								#print('last')
-								high_split = t + (planning_time + extra_time - .02)
+								high_split = t + (planning_time - .02)
 							else:
 								high_split = max(next_t, t + space_time)
 							if first:
@@ -569,9 +503,9 @@ class full_system:
 	def __init__(self, adj_array, info_dict):
 		self.adj_array = adj_array
 		self.info_dict = info_dict
-		self.system_list = []
+		self.flie_list = []
 		self.pubTime = rospy.Publisher('~time_path_topic',HiPathTime, queue_size=10)
-		#self.analyse_adj_array()
+		self.pubRes = rospy.Publisher('~reserved_IDs_topic', reserved_IDs, queue_size=10)
 		self.runner()
 
 	def analyse_adj_array(self):
@@ -587,15 +521,10 @@ class full_system:
 
 	def runner(self):
 		for ID in range(cf_num):
-			sys = system(self.adj_array, self.info_dict, ID, self.pubTime)
-			self.system_list.append(sys)
-		#rospy.init_node('highlighter', anonymous = False)
-		#rospy.Subscriber('~SimPos_topic', SimPos, self.pos_update)
-		#thread.start_new_thread ( self.pos_update, ())
-		for sys in self.system_list:
-			sys.publish_new_path()
-		#thread.start_new_thread ( self.double_check , ())
-		#rospy.spin()
+			f = flie(self.adj_array, self.info_dict, ID, self.pubTime)
+			self.flie_list.append(f)
+		for f in self.flie_list:
+			f.publish_new_path()
 		self.double_check()
 
 	#publishes constant old paths
@@ -604,60 +533,21 @@ class full_system:
 	def double_check(self):
 		rate = rospy.Rate(10)
 		while not rospy.is_shutdown():
-			for sys in self.system_list:
-				if sys.running:
-					if sys.is_finished() and continuous:
-						sys.publish_new_path()
+			for f in self.flie_list:
+				if f.running:
+					if f.is_finished() and continuous:
+						f.publish_new_path()
 					else:
-						sys.publish_old_path()
+						f.publish_old_path()
+			self.publish_reserved_IDs()
 			rate.sleep()
-	'''
-	#response to simulator, updates position accordingly
-	#time update hard coded in, will be a problem
-	def pos_update(self, data):
-		#global current_time
-		#current_time += .01
-		x_list = data.x
-		y_list = data.y
-		z_list = data.z
-		for index in range(len(x_list)):
-			sys = self.system_list[index]
-			x = x_list[index]
-			y = y_list[index]
-			z = z_list[index]
-			sys.update_cf_pos((x, y, z))
-	'''
-'''
-def map_maker_client():
-	global si_dict
-	rospy.wait_for_service('send_complex_map')
-	try:
-		print('calling')
-		func = rospy.ServiceProxy('send_complex_map', MapTalk)
-		resp = func()
-		print('recieved')
-		category_list = resp.category_list
-		x_list = resp.x_list
-		y_list = resp.y_list
-		z_list = resp.z_list
-		num_IDs = resp.num_IDs
-		adjacency_array = resp.adjacency_array
-		A = np.array(adjacency_array)
-		A.shape = (num_IDs, num_IDs)
-		adj_array = A
-		info_dict = {}
-		for ID in range(num_IDs):
-			x = (x_list[ID])
-			y = (y_list[ID])
-			z = (z_list[ID])
-			c = static_category_dict[category_list[ID]]
-			#print(category_list[ID])
-			info_dict[ID] = ((x, y, z), c)
-			si_dict[ID] = [(time.time(), time.time()*1000)]
-		fs = full_system(A, info_dict)
-	except rospy.ServiceException, e:
-		print("service call failed")
-'''
+
+	def publish_reserved_IDs(self):
+		if show_reserved:
+			res_list = get_reserved_IDs()
+			self.pubRes.publish(res_list)
+
+
 def fill_air_buffer_dict(info_dict):
 	global air_buffer_dict
 	for ID in info_dict:
@@ -678,7 +568,7 @@ def fill_air_buffer_dict(info_dict):
 			air_buffer_dict[ID] = buffered
 	#print(air_buffer_dict)
 
-
+#waits for setup to tell it to go
 def waiter(info_dict, A):
 	def start(data):
 		print('started!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
@@ -701,5 +591,3 @@ if __name__ == "__main__":
 	for ID in info_dict:
 		si_dict[ID] = [(starting_time, starting_time*1000)]
 	waiter(info_dict, A)
-
-	#fs = full_system(A, info_dict)

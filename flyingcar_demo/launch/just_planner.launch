@@ -9,12 +9,17 @@
   <arg name="air_vel" default=".5" />
   <arg name="land_vel" default=".25" />
 
+
+
+  <!--
   <remap from="simple_marker/path_topic" to="$(arg planner)/path_topic" />
   <remap from="simulator/time_path_topic" to="$(arg planner)/time_path_topic" />
+  -->
   <remap from="$(arg planner)/SimPos_topic" to="simulator/SimPos_topic" />
-
+  <!--
   <remap from="simple_marker/Start_SimPos_topic" to="setup/Start_SimPos_topic" />
   <remap from="simple_marker/SimPos_topic" to="simulator/SimPos_topic" />
+  -->
   <remap from="simulator/Start_SimPos_topic" to="setup/Start_SimPos_topic" />
 
   <include file="$(find map_maker)/launch/sim.launch"/>
