@@ -460,6 +460,27 @@ class OptModel:
 				m.remove(m.getConstrByName('meet_%s' % (node)))
 		return m
 
+	def update_loopback(self, new_startend):
+		new_m = self.remove_loopback_constraints(self.m)
+		new_m = self.remove_constraints(new_m, self.startend)
+		new_m, new_flow, new_arcs = self.remove_loopback_variables(new_m,self.flow,self.arcs)
+		new_m, new_flow, new_arcs = self.add_new_loopback_variables(new_m, new_flow, new_arcs, new_startend)
+		new_m.update()
+		new_m = self.add_new_loopback_constraints(new_m, new_flow, new_arcs)
+		time_node_list = []
+		for start, end in new_startend:
+			time_node_list.append(start)
+			time_node_list.append(end + self.time_horizon*self.num_IDs)
+		node_list = [x for arc in new_startend for x in arc]
+		new_m = self.add_capacity_constraints(new_m, new_flow, new_arcs,time_node_list)
+		new_m = self.add_meet_collision_constraints(new_m, new_flow, new_arcs,time_node_list)
+		new_m = self.add_flow_conservation_constraints(new_m, new_flow, new_arcs,node_list)
+		new_m.update()
+		self.m = new_m
+		self.flow = new_flow
+		self.arcs = new_arcs
+		self.startend = new_startend
+
 	def remove_flow_conservation_constraints(self, m, time_node_list):
 		for cf in range(cf_num):
 			for node in time_node_list:
@@ -700,10 +721,10 @@ class full_system:
 
 		if m == None: #then this is your first time planning
 			model = OptModel(self.info_dict, self.adj_array, startend, min_time_horizon, self.true_costs, self.model_type)
-			#model.update_loopback(startend)
+			model.update_loopback(startend)
 		else:
 			model = OptModel(self.info_dict, self.adj_array, startend, min_time_horizon, self.true_costs, self.model_type)
-			#model.update_loopback(startend)
+			model.update_loopback(startend)
 
 		m = model.optimize()
 
@@ -714,9 +735,9 @@ class full_system:
 			#old_time_horizon = self.time_horizon
 			self.time_horizon = self.time_horizon + 1
 			#self.update_model(m, flow, startend, self.time_horizon, old_startend, old_time_horizon, arcs, costs,self.true_costs)
-			#model = OptModel(self.info_dict, self.adj_array, startend, self.time_horizon, self.true_costs, self.model_type)
-			model.update(self.time_horizon, startend)
-			#model.update_loopback(startend)
+			model = OptModel(self.info_dict, self.adj_array, startend, self.time_horizon, self.true_costs, self.model_type)
+			#model.update(self.time_horizon, startend)
+			model.update_loopback(startend)
 			m = model.optimize()
 
 		if m.status == GRB.Status.OPTIMAL:
