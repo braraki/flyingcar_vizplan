@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
   <arg name="cf_num" default="7"/>
-  <arg name="map" default="duckytown_map" />
+  <arg name="map" default="duckytown" />
   <arg name="air_vel" default=".5" />
   <arg name="land_vel" default=".25" />
   <arg name="time_step" default=".5" />

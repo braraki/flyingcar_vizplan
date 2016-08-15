@@ -69,17 +69,19 @@ def get_opt_energy(info_dict, ID1, ID2, air_vel, land_vel, timestep):
 def get_wait_energy(info_dict, ID1, wait_time):
 	((x1, y1, z1),c1) = info_dict[ID1]
 	if map_maker_helper.is_air(c1):
-		wait_energy_expenditure = .5
+		wait_energy_expenditure = 2
 	else:
 		wait_energy_expenditure = .05
 	return(wait_time * wait_energy_expenditure)
 
+
+#I dont know what this is
 def get_move_energy_opt(info_dict, ID1, ID2, move_time, air_vel, land_vel):
 	((x1, y1, z1),c1) = info_dict[ID1]
 	((fx, fy, fz), fc) = info_dict[ID2]
 	dist_traveled = ((x1-fx)**2 + (y1-fy)**2 + (z1-fz)**2)**.5
 	if map_maker_helper.is_air(c1) or map_maker_helper.is_air(fc):
-		const_energy_expenditure = .5
+		const_energy_expenditure = 1
 	else:
 		const_energy_expenditure = .125
 	TE = const_energy_expenditure*dist_traveled
@@ -91,7 +93,7 @@ def get_move_energy(info_dict, ID1, ID2, move_time, air_vel, land_vel):
 	((fx, fy, fz), fc) = info_dict[ID2]
 	dist_traveled = ((x1-fx)**2 + (y1-fy)**2 + (z1-fz)**2)**.5
 	if map_maker_helper.is_air(c1) or map_maker_helper.is_air(fc):
-		const_energy_expenditure = .5
+		const_energy_expenditure = 2
 	else:
 		const_energy_expenditure = .125
 	TE = const_energy_expenditure*move_time

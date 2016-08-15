@@ -18,7 +18,7 @@
   	<param name="air_vel" value="$(arg air_vel)" />
     <param name="air_buffer_dist" value=".5" />
     <param name="buffer_z_frac" value=".5" />
-    <param name="show_reserved" value="True" />
+    <param name="show_reserved" value="False" />
   </node>
 
   <node name="easy_sg" pkg="planner" type="easy_sg.py"/>
