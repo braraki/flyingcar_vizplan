@@ -60,6 +60,7 @@ class visual_node:
 			self.categorize(category)
 		self.tile = None
 		self.reserved = False
+		self.make_markers()
 
 	def add_successor(self, node):
 		if node not in self.successors:
@@ -83,27 +84,43 @@ class visual_node:
 		else:
 			self.color = (0, 0, 0)
 
-	def construct(self, int_marker):
-		n_marker = Marker()
-		n_marker.type = Marker.CUBE
-		n_marker.scale.x = .05
-		n_marker.scale.y = .05
-		n_marker.scale.z = .05
-		if not self.reserved:
-			(n_marker.color.r, n_marker.color.g, n_marker.color.b) = self.color	
-			n_marker.color.a = .5
-		else:
-			(n_marker.color.r, n_marker.color.g, n_marker.color.b) = (0, 0, 0)
-			n_marker.color.a = 1
-		n_marker.pose.position.x = self.x
-		n_marker.pose.position.y = self.y
-		n_marker.pose.position.z = self.z
-			
-		n_control = InteractiveMarkerControl()
-		n_control.always_visible = True
-		n_control.markers.append( n_marker )
-		int_marker.controls.append(n_control)
+	def make_markers(self):
+		n1_marker = Marker()
+		n1_marker.type = Marker.CUBE
+		n1_marker.scale.x = .05
+		n1_marker.scale.y = .05
+		n1_marker.scale.z = .05
+		(n1_marker.color.r, n1_marker.color.g, n1_marker.color.b) = self.color	
+		n1_marker.color.a = .5
+		n1_marker.pose.position.x = self.x
+		n1_marker.pose.position.y = self.y
+		n1_marker.pose.position.z = self.z
 
+		n2_marker = Marker()
+		n2_marker.type = Marker.CUBE
+		n2_marker.scale.x = .05
+		n2_marker.scale.y = .05
+		n2_marker.scale.z = .05
+		(n2_marker.color.r, n2_marker.color.g, n2_marker.color.b) = (0, 0, 0)
+		n2_marker.color.a = 1
+		n2_marker.pose.position.x = self.x
+		n2_marker.pose.position.y = self.y
+		n2_marker.pose.position.z = self.z
+			
+		self.n1_control = InteractiveMarkerControl()
+		self.n1_control.always_visible = True
+		self.n1_control.markers.append( n1_marker )
+
+		self.n2_control = InteractiveMarkerControl()
+		self.n2_control.always_visible = True
+		self.n2_control.markers.append( n2_marker )
+
+
+	def construct(self, int_marker):
+		if not self.reserved:
+			int_marker.controls.append(self.n1_control)
+		else:
+			int_marker.controls.append(self.n2_control)
 		return(int_marker)
 
 	def assign_tile(self, t):
@@ -204,6 +221,7 @@ class building_scape:
 		self.crazyflie_list = []
 		self.cf_num = None
 		self.server = InteractiveMarkerServer("simple_marker")
+		self.reserved_list = []
 		rospy.Subscriber('~time_path_topic', HiPathTime, self.respond)
 		rospy.Subscriber('~SimPos_topic', SimPos, self.pos_respond)
 		rospy.Subscriber('~Start_SimPos_topic', SimPos, self.pos_respond)
@@ -288,13 +306,29 @@ class building_scape:
 		self.server.applyChanges()
 
 	def show_reserved(self, data):
-		reserved = data.reserved_IDs
+		reserved = list(data.reserved_IDs)
+		remaining = reserved[:]
+		for n in self.reserved_list:
+			if n.ID in remaining:
+				remaining.remove(n.ID)
+			else:
+				n.reserved = False
+				self.reserved_list.remove(n)
+		for ID in remaining:
+			n = self.node_scape.node_dict[ID]
+			n.reserved = True
+			self.reserved_list.append(n)
+		self.construct_nodes()
+
+
+		'''
 		for n in self.node_scape.node_dict.values():
 			n.reserved = False
 		for r in reserved:
 			n = self.node_scape.node_dict[r]
 			n.reserved = True
 		self.construct_nodes()
+		'''
 
 	def construct_nodes(self):
 		# create an interactive marker for our server
