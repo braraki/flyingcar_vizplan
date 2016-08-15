@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="my_crazyflie3">
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="my_crazyflie4">
 
   <link name="base_link">
     <inertial>
@@ -13,7 +13,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://map_maker/meshes/my_crazyflie3.dae"/>
+        <mesh filename="package://map_maker/meshes/my_crazyflie4.dae"/>
       </geometry>
     </visual>
 
