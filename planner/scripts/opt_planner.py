@@ -158,13 +158,17 @@ def true_distances(info_dict, adj_array, goal):
 
 def edge_costs(info_dict, adj_array):
 	costs = {}
+	battery_costs = {}
 	num_IDs = len(info_dict)
 	for ID1 in range(num_IDs):
 		row = adj_array[ID1]
 		for (ID2, value) in enumerate(row):
 			if value == 1 or ID1 == ID2:
 				costs[(ID1, ID2)] = planner_helper.optimal_cost(info_dict, ID1, ID2, air_vel, land_vel, planner_timestep)
-	return costs
+				energy = planner_helper.get_opt_energy(info_dict, ID1, ID2, air_vel, land_vel, planner_timestep)
+				battery_voltage_drop = planner_helper.get_voltage(energy)
+				battery_costs[(ID1,ID2)] = battery_voltage_drop
+	return costs, battery_costs
 
 def optimal_distance(info_dict, adj_array, start, goal):
 	(x2, y2, z2) = info_dict[goal][0]
@@ -211,29 +215,32 @@ def optimal_cost_path(info_dict, adj_array, start, goal, true_costs):
 	return optimal_path, len(optimal_path)-1
 
 class OptModel:
-	def __init__(self, info_dict, adj_array, startend, time_horizon, true_costs, kind):
+	def __init__(self, info_dict, adj_array, startend, time_horizon, true_costs, battery_costs, battery_range, kind):
 		self.info_dict = info_dict
 		self.adj_array = adj_array
 		self.startend = startend
 		self.time_horizon = time_horizon
 		self.true_costs = true_costs
+		self.true_battery_costs = battery_costs
 		self.kind = kind
 		self.num_IDs = len(self.info_dict)
 		self.num_time_IDs = (self.time_horizon+1)*self.num_IDs
-		self.arcs, self.costs = self.convert_graph()
+		self.arcs, self.costs, self.battery_costs = self.convert_graph()
 		self.num_arcs = len(self.arcs)
+		self.battery_range = battery_range
 		self.m, self.flow = self.make_model()
 
 	def optimize(self):
 		self.m.optimize()
 		return self.m
 
-	def add_time_nodes(self, ID, timestep, arcs, costs):
+	def add_time_nodes(self, ID, timestep, arcs, costs,battery_costs):
 		current_state = ID+timestep*self.num_IDs
 		next_state = ID+(timestep+1)*self.num_IDs
 		arcs.append((current_state, next_state))
 		for cf in range(cf_num):
 			costs[(cf,current_state,next_state)] = self.true_costs[(ID,ID)]
+			battery_costs[(cf,current_state,next_state)] = self.true_battery_costs[(ID,ID)]
 			if ID == self.startend[cf][1]:
 				costs[(cf,current_state,next_state)] = 0
 
@@ -244,13 +251,15 @@ class OptModel:
 				arcs.append((current_state, next_neighbor))
 				for cf in range(cf_num):
 					costs[(cf,current_state, next_neighbor)] = self.true_costs[(ID,ID2)]
+					battery_costs[(cf,current_state, next_neighbor)] = self.true_battery_costs[(ID,ID2)]
 					if ID2 == self.startend[cf][1]:
 						costs[(cf,current_state,next_neighbor)] = 0
-		return arcs, costs
+		return arcs, costs, battery_costs
 
 	def convert_graph(self):
 		costs = {}
 		arcs = tuplelist()
+		battery_costs = {}
 
 		# first add loopback arcs
 		for start, end in self.startend:
@@ -259,17 +268,17 @@ class OptModel:
 
 		for ID in range(self.num_IDs):
 			for timestep in range(self.time_horizon):
-				arcs, costs = self.add_time_nodes(ID,timestep,arcs,costs)
+				arcs, costs, battery_costs = self.add_time_nodes(ID,timestep,arcs,costs, battery_costs)
 
 		print "NUM IDS: " + str(self.num_IDs)
 		print "num arcs: " + str(len(arcs))
-		return arcs, costs
+		return arcs, costs, battery_costs
 
-	def add_time_to_graph(self, arcs, costs, new_time_horizon):
+	def add_time_to_graph(self, arcs, costs, battery_costs, new_time_horizon):
 		for ID in range(self.num_IDs):
 			for timestep in range(self.time_horizon, new_time_horizon):
-				arcs, costs = self.add_time_nodes(ID,timestep,arcs,costs)
-		return arcs, costs
+				arcs, costs, battery_costs = self.add_time_nodes(ID,timestep,arcs,costs,battery_costs)
+		return arcs, costs, battery_costs
 
 	def update(self, new_time_horizon, new_startend):
 		new_m = self.remove_loopback_constraints(self.m)
@@ -281,7 +290,7 @@ class OptModel:
 
 		if new_time_horizon > self.time_horizon:
 			old_arc_list_length = len(self.arcs)
-			self.arcs, self.costs = self.add_time_to_graph(self.arcs, self.costs, new_time_horizon)
+			self.arcs, self.costs = self.add_time_to_graph(self.arcs, self.costs, self.battery_costs, new_time_horizon)
 			added_arcs = range(old_arc_list_length, len(self.arcs))
 			new_m, new_flow = self.add_flow_variables(new_m, new_flow, added_arcs)
 			time_node_list = []
@@ -472,9 +481,9 @@ class OptModel:
 			time_node_list.append(start)
 			time_node_list.append(end + self.time_horizon*self.num_IDs)
 		node_list = [x for arc in new_startend for x in arc]
-		new_m = self.add_capacity_constraints(new_m, new_flow, new_arcs,time_node_list)
+		new_m = self.add_capacity_constraints(new_m, new_flow, new_arcs,range(len(new_startend)))
 		new_m = self.add_meet_collision_constraints(new_m, new_flow, new_arcs,time_node_list)
-		new_m = self.add_flow_conservation_constraints(new_m, new_flow, new_arcs,node_list)
+		new_m = self.add_flow_conservation_constraints(new_m, new_flow, new_arcs,time_node_list)
 		new_m.update()
 		self.m = new_m
 		self.flow = new_flow
@@ -556,6 +565,14 @@ class OptModel:
 								'head_on_%s_%s' % (u_t0, v_t0))
 		return m
 
+	def add_battery_constraints(self, m, flow, arcs):
+		for cf in range(cf_num):
+			objExpr = LinExpr()
+			for i,j in arcs[len(self.startend):]:
+				objExpr.addTerms(self.battery_costs[cf,i,j],flow[cf,i,j])
+			m.addConstr(objExpr,GRB.LESS_EQUAL, self.battery_range[cf], 'battery_%s' % (cf))
+		return m
+
 	def generic_model(self):
 		print str(time.time()) + " about to make model"
 		m = Model('netflow')
@@ -577,6 +594,9 @@ class OptModel:
 		m = self.add_head_on_collision_constraints(m, flow, range(self.num_IDs), range(self.time_horizon))
 		print str(time.time()) + " added head-on collision constraints"
 
+		m = self.add_battery_constraints(m, flow, self.arcs)
+		print str(time.time()) + " added battery constraints"
+
 		m.update()
 		return m, flow
 
@@ -589,6 +609,19 @@ class OptModel:
 				for i,j in self.arcs:
 					if solution[h,i,j] > 0:
 						print('%s -> %s: %g' % (i, j, solution[h,i,j]))
+
+	def update_batteries(self):
+		paths = {}
+		solution = self.m.getAttr('x',self.flow)
+		for cf in range(cf_num):
+			battery_drop = 0
+			path = tuplelist()
+			for i,j in self.arcs[len(self.startend):]:
+				if solution[cf,i,j] > 0:
+					battery_drop += self.battery_costs[cf,i,j]
+			self.battery_range[cf] = self.battery_range[cf] - battery_drop
+			print "cf %s battery is now %s" % (cf, self.battery_range[cf]) 
+		return self.battery_range
 
 	def get_paths(self):
 		paths = {}
@@ -678,7 +711,10 @@ class full_system:
 		self.model_type = 'total_distance'
 		self.planning_time = 0
 		self.time_horizon = 0
-		self.true_costs = edge_costs(self.info_dict, self.adj_array)
+		self.battery_range = []
+		for cf in range(cf_num):
+			self.battery_range.append(4)
+		self.true_costs, self.battery_costs = edge_costs(self.info_dict, self.adj_array)
 		self.pubTime = rospy.Publisher('~time_path_topic',HiPathTime, queue_size=10)
 		self.runner()
 
@@ -717,14 +753,14 @@ class full_system:
 		optimal_time_paths = self.paths_to_time_paths(optimal_paths)
 		print str(time.time()) + " about to convert graph"
 
-		min_time_horizon -= 1
+		#min_time_horizon -= 1
 
 		if m == None: #then this is your first time planning
-			model = OptModel(self.info_dict, self.adj_array, startend, min_time_horizon, self.true_costs, self.model_type)
-			model.update_loopback(startend)
+			model = OptModel(self.info_dict, self.adj_array, startend, min_time_horizon, self.true_costs, self.battery_costs, self.battery_range, self.model_type)
+			#model.update_loopback(startend)
 		else:
-			model = OptModel(self.info_dict, self.adj_array, startend, min_time_horizon, self.true_costs, self.model_type)
-			model.update_loopback(startend)
+			model = OptModel(self.info_dict, self.adj_array, startend, min_time_horizon, self.true_costs, self.battery_costs, self.battery_range, self.model_type)
+			#model.update_loopback(startend)
 
 		m = model.optimize()
 
@@ -735,9 +771,9 @@ class full_system:
 			#old_time_horizon = self.time_horizon
 			self.time_horizon = self.time_horizon + 1
 			#self.update_model(m, flow, startend, self.time_horizon, old_startend, old_time_horizon, arcs, costs,self.true_costs)
-			model = OptModel(self.info_dict, self.adj_array, startend, self.time_horizon, self.true_costs, self.model_type)
+			model = OptModel(self.info_dict, self.adj_array, startend, self.time_horizon, self.true_costs, self.battery_costs, self.battery_range, self.model_type)
 			#model.update(self.time_horizon, startend)
-			model.update_loopback(startend)
+			#model.update_loopback(startend)
 			m = model.optimize()
 
 		if m.status == GRB.Status.OPTIMAL:
@@ -747,6 +783,7 @@ class full_system:
 			self.planning_time = planning_start_time - planning_end_time
 
 			model.print_solution()
+			self.battery_range = model.update_batteries()
 			self.paths,self.times = model.get_paths()
 
 			for cf in range(cf_num):
