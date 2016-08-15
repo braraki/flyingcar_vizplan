@@ -208,7 +208,7 @@ def optimal_cost_path(info_dict, adj_array, start, goal, true_costs):
 		return(dist)
 	optimal_path = a_star(successors, start, goal_test, dist)
 	print "Supposedly optimal path: " + str(optimal_path)
-	return optimal_path, len(optimal_path)
+	return optimal_path, len(optimal_path)-1
 
 class OptModel:
 	def __init__(self, info_dict, adj_array, startend, time_horizon, true_costs, kind):
@@ -228,6 +228,26 @@ class OptModel:
 		self.m.optimize()
 		return self.m
 
+	def add_time_nodes(self, ID, timestep, arcs, costs):
+		current_state = ID+timestep*self.num_IDs
+		next_state = ID+(timestep+1)*self.num_IDs
+		arcs.append((current_state, next_state))
+		for cf in range(cf_num):
+			costs[(cf,current_state,next_state)] = self.true_costs[(ID,ID)]
+			if ID == self.startend[cf][1]:
+				costs[(cf,current_state,next_state)] = 0
+
+		row = self.adj_array[ID]
+		for (ID2, value) in enumerate(row):
+			if value == 1 and ID2 != ID:
+				next_neighbor = ID2+(timestep+1)*self.num_IDs
+				arcs.append((current_state, next_neighbor))
+				for cf in range(cf_num):
+					costs[(cf,current_state, next_neighbor)] = self.true_costs[(ID,ID2)]
+					if ID2 == self.startend[cf][1]:
+						costs[(cf,current_state,next_neighbor)] = 0
+		return arcs, costs
+
 	def convert_graph(self):
 		costs = {}
 		arcs = tuplelist()
@@ -239,27 +259,62 @@ class OptModel:
 
 		for ID in range(self.num_IDs):
 			for timestep in range(self.time_horizon):
-				current_state = ID+timestep*self.num_IDs
-				next_state = ID+(timestep+1)*self.num_IDs
-				arcs.append((current_state, next_state))
-				for cf in range(cf_num):
-					costs[(cf,current_state,next_state)] = self.true_costs[(ID,ID)]
-					if ID == self.startend[cf][1]:
-						costs[(cf,current_state,next_state)] = 0
-
-				row = self.adj_array[ID]
-				for (ID2, value) in enumerate(row):
-					if value == 1 and ID2 != ID:
-						next_neighbor = ID2+(timestep+1)*self.num_IDs
-						arcs.append((current_state, next_neighbor))
-						for cf in range(cf_num):
-							costs[(cf,current_state, next_neighbor)] = self.true_costs[(ID,ID2)]
-							if ID2 == self.startend[cf][1]:
-								costs[(cf,current_state,next_neighbor)] = 0
+				arcs, costs = self.add_time_nodes(ID,timestep,arcs,costs)
 
 		print "NUM IDS: " + str(self.num_IDs)
 		print "num arcs: " + str(len(arcs))
 		return arcs, costs
+
+	def add_time_to_graph(self, arcs, costs, new_time_horizon):
+		for ID in range(self.num_IDs):
+			for timestep in range(self.time_horizon, new_time_horizon):
+				arcs, costs = self.add_time_nodes(ID,timestep,arcs,costs)
+		return arcs, costs
+
+	def update(self, new_time_horizon, new_startend):
+		new_m = self.remove_loopback_constraints(self.m)
+		print "REMOVING CONSTRAINTSSSSSSSSSSSSSSSSSSSSSSSSSSSS"
+		new_m = self.remove_constraints(new_m, self.startend)
+		print "REMOVED CONSTRAINTS"
+		new_m, new_flow, new_arcs = self.remove_loopback_variables(new_m,self.flow,self.arcs)
+		new_m.update()
+
+		if new_time_horizon > self.time_horizon:
+			old_arc_list_length = len(self.arcs)
+			self.arcs, self.costs = self.add_time_to_graph(self.arcs, self.costs, new_time_horizon)
+			added_arcs = range(old_arc_list_length, len(self.arcs))
+			new_m, new_flow = self.add_flow_variables(new_m, new_flow, added_arcs)
+			time_node_list = []
+			for arc in added_arcs:
+				i,j = self.arcs[arc]
+				time_node_list.append(i)
+				time_node_list.append(j)
+			new_m = self.add_capacity_constraints(new_m, new_flow, self.arcs,range(len(new_startend)))
+			new_m = self.add_meet_collision_constraints(new_m, new_flow, self.arcs,time_node_list)
+			new_m = self.add_flow_conservation_constraints(new_m, new_flow, self.arcs,time_node_list)
+			new_m = self.add_head_on_collision_constraints(new_m, new_flow, range(self.num_IDs), range(self.time_horizon,new_time_horizon))
+			new_m.update()
+
+		new_m, new_flow, new_arcs = self.add_new_loopback_variables(new_m, new_flow, new_arcs, new_startend)
+		new_m.update()
+		new_m = self.add_new_loopback_constraints(new_m, new_flow, new_arcs)
+		time_node_list = []
+		for start, end in new_startend:
+			time_node_list.append(start)
+			time_node_list.append(end + (new_time_horizon)*self.num_IDs)
+		node_list = [x for arc in new_startend for x in arc]
+		print "TIME NODE LIST: " + str(time_node_list)
+		new_m = self.add_capacity_constraints(new_m, new_flow, new_arcs,range(len(new_startend)))
+		new_m = self.add_meet_collision_constraints(new_m, new_flow, new_arcs,time_node_list)
+		new_m = self.add_flow_conservation_constraints(new_m, new_flow, new_arcs,time_node_list)
+		new_m.update()
+
+		self.m = new_m
+		self.flow = new_flow
+		self.time_horizon = new_time_horizon
+		self.num_time_IDs = (self.time_horizon+1)*self.num_IDs
+		self.num_arcs = len(self.arcs)
+		self.startend = new_startend
 
 	def make_model(self):
 		m, flow = self.generic_model()
@@ -283,10 +338,11 @@ class OptModel:
 		m.update()
 		return m, flow
 
-	def add_flow_variables(self, m, flow):
+	def add_flow_variables(self, m, flow, arc_list):
 		# add a flow variable for each robot-arc pair
 		# loop through arcs, THEN crazyflies so that you maintain clusters based on timestep
-		for i,j in self.arcs:
+		for arc in arc_list:
+			i,j = self.arcs[arc]
 			for cf in range(cf_num):
 				flow[cf,i,j] = m.addVar(ub=1.0, obj= 0.0, vtype=GRB.BINARY,
 					name='flow_%s_%s_%s' % (cf, i, j))
@@ -337,21 +393,28 @@ class OptModel:
 			m.addConstr(flow[i,f,l] == 1, 'loopback_filled_%s' %(i))
 		return m
 
-	def update_loopback(self, new_startend):
+	def remove_loopback(self):
 		new_m = self.remove_loopback_constraints(self.m)
 		new_m = self.remove_constraints(new_m, self.startend)
 		new_m, new_flow, new_arcs = self.remove_loopback_variables(new_m,self.flow,self.arcs)
+		new_m.update()
+		self.m = new_m
+		self.flow = new_flow
+		self.arcs = new_arcs
+
+	def add_loopback(self, new_startend):
 		new_m, new_flow, new_arcs = self.add_new_loopback_variables(new_m, new_flow, new_arcs, new_startend)
 		new_m.update()
 		new_m = self.add_new_loopback_constraints(new_m, new_flow, new_arcs)
 		time_node_list = []
 		for start, end in new_startend:
 			time_node_list.append(start)
-			time_node_list.append(end + self.time_horizon*self.num_IDs)
+			time_node_list.append(end + (self.time_horizon-1)*self.num_IDs)
 		node_list = [x for arc in new_startend for x in arc]
-		new_m = self.add_capacity_constraints(new_m, new_flow, new_arcs,time_node_list)
+		print "TIME NODE LIST: " + str(time_node_list)
+		new_m = self.add_capacity_constraints(new_m, new_flow, new_arcs,range(len(new_startend)))
 		new_m = self.add_meet_collision_constraints(new_m, new_flow, new_arcs,time_node_list)
-		new_m = self.add_flow_conservation_constraints(new_m, new_flow, new_arcs,node_list)
+		new_m = self.add_flow_conservation_constraints(new_m, new_flow, new_arcs,time_node_list)
 		new_m.update()
 		self.m = new_m
 		self.flow = new_flow
@@ -376,11 +439,12 @@ class OptModel:
 		time_node_list = []
 		for start, end in startend:
 			time_node_list.append(start)
-			time_node_list.append(end + self.time_horizon*self.num_IDs)
-		node_list = [x for arc in startend for x in arc]
+			time_node_list.append(end + (self.time_horizon)*self.num_IDs)
+		node_list = list(set([x for arc in startend for x in arc]))
 		m = self.remove_meet_collision_constraints(m, time_node_list)
 		m = self.remove_flow_conservation_constraints(m, time_node_list)
-		m = self.remove_head_on_collision_constraints(m, node_list)
+		#print node_list
+		#m = self.remove_head_on_collision_constraints(m, node_list)
 		return m
 
 	def remove_capacity_constraints(self, m, arc_list):
@@ -449,8 +513,8 @@ class OptModel:
 						'node_%s_%s' % (cf,node))
 		return m
 
-	def add_head_on_collision_constraints(self, m, flow):
-		for ID1 in range(self.num_IDs):
+	def add_head_on_collision_constraints(self, m, flow, node_list, time_range):
+		for ID1 in node_list:
 		# need to connect ID+timestep*num_IDs to ID+(timestep+1)*num_IDs
 			row = self.adj_array[ID1]
 			for (ID2, value) in enumerate(row):
@@ -460,7 +524,7 @@ class OptModel:
 					id2_row = self.adj_array[ID2]
 					# this is to check that ID1 and ID2 both have edges to each other
 					if id2_row[ID1] == 1:
-						for timestep in range(self.time_horizon):
+						for timestep in time_range:
 							u_t0 = ID1+timestep*self.num_IDs
 							u_t1 = ID1 + (timestep+1)*self.num_IDs
 							v_t0 = ID2 + timestep*self.num_IDs
@@ -476,7 +540,7 @@ class OptModel:
 		m = Model('netflow')
 		flow = {}
 
-		m, flow = self.add_flow_variables(m, flow)
+		m, flow = self.add_flow_variables(m, flow, range(self.num_arcs))
 		print str(time.time()) + " added variables to model"
 
 		m = self.add_loopback_capacity_constraints(m, flow)
@@ -489,7 +553,7 @@ class OptModel:
 		m = self.add_flow_conservation_constraints(m, flow, self.arcs, range(self.num_time_IDs))
 		print str(time.time()) + " added flow conservation constraints"
 
-		m = self.add_head_on_collision_constraints(m, flow)
+		m = self.add_head_on_collision_constraints(m, flow, range(self.num_IDs), range(self.time_horizon))
 		print str(time.time()) + " added head-on collision constraints"
 
 		m.update()
@@ -632,12 +696,14 @@ class full_system:
 		optimal_time_paths = self.paths_to_time_paths(optimal_paths)
 		print str(time.time()) + " about to convert graph"
 
+		min_time_horizon -= 1
+
 		if m == None: #then this is your first time planning
 			model = OptModel(self.info_dict, self.adj_array, startend, min_time_horizon, self.true_costs, self.model_type)
-			model.update_loopback(startend)
+			#model.update_loopback(startend)
 		else:
 			model = OptModel(self.info_dict, self.adj_array, startend, min_time_horizon, self.true_costs, self.model_type)
-			model.update_loopback(startend)
+			#model.update_loopback(startend)
 
 		m = model.optimize()
 
@@ -648,9 +714,9 @@ class full_system:
 			#old_time_horizon = self.time_horizon
 			self.time_horizon = self.time_horizon + 1
 			#self.update_model(m, flow, startend, self.time_horizon, old_startend, old_time_horizon, arcs, costs,self.true_costs)
-			model = OptModel(self.info_dict, self.adj_array, startend, self.time_horizon, self.true_costs, self.model_type)
+			#model = OptModel(self.info_dict, self.adj_array, startend, self.time_horizon, self.true_costs, self.model_type)
+			model.update(self.time_horizon, startend)
 			#model.update_loopback(startend)
-			#model.update(self.time_horizon)
 			m = model.optimize()
 
 		if m.status == GRB.Status.OPTIMAL:
