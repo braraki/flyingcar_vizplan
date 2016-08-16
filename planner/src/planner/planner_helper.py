@@ -70,6 +70,22 @@ def get_energy(info_dict, ID1, ID2, travel_time, air_vel, land_vel, takeoff_vel 
 		move_energy = get_move_energy(info_dict, ID1, ID2, travel_time)
 	return(wait_energy + move_energy)
 
+def get_opt_energy(info_dict, ID1, ID2, air_vel, land_vel, timestep):
+	((x1, y1, z1),c1) = info_dict[ID1]
+	((fx, fy, fz), fc) = info_dict[ID2]
+	dist_traveled = ((x1-fx)**2 + (y1-fy)**2 + (z1-fz)**2)**.5
+	vel = land_vel
+	if map_maker_helper.is_air(c1) or map_maker_helper.is_air(fc):
+		vel = air_vel
+	expected_time = dist_traveled/float(vel)
+	if ID1 == ID2:
+		wait_energy = get_wait_energy(info_dict, ID1, timestep)
+		move_energy = get_move_energy(info_dict, ID1, ID2, timestep, air_vel, land_vel)
+	else:
+		wait_energy = 0
+		move_energy = get_move_energy(info_dict, ID1, ID2, timestep, air_vel, land_vel)
+	return(wait_energy + move_energy)
+
 def get_wait_energy(info_dict, ID1, wait_time):
 	((x1, y1, z1),c1) = info_dict[ID1]
 	if map_maker_helper.is_air(c1):
