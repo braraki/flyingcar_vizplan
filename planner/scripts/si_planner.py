@@ -17,6 +17,8 @@ z_coefficient = float(rospy.get_param('/si_planner/z_coefficient'))
 continuous = bool(rospy.get_param('/si_planner/continuous'))
 land_vel = float(rospy.get_param('/si_planner/land_vel'))
 air_vel = float(rospy.get_param('/si_planner/air_vel'))
+takeoff_vel = float(rospy.get_param('/si_planner/takeoff_vel'))
+landing_vel = float(rospy.get_param('/si_planner/landing_vel'))
 air_buffer_dist = float(rospy.get_param('/si_planner/air_buffer_dist'))
 buffer_z_frac = float(rospy.get_param('/si_planner/buffer_z_frac'))
 show_reserved = bool(rospy.get_param('/si_planner/show_reserved'))
@@ -215,8 +217,8 @@ def true_costs(info_dict, adj_array, goal):
 				time_passed = dist_traveled / float(vel)
 				'''
 				#time_passed = planner_helper.get_cost(info_dict, ID1, goal, air_vel, land_vel)
-				t = planner_helper.get_time(info_dict, ID1, ID2, air_vel, land_vel)
-				e = planner_helper.get_energy(info_dict, ID1, ID2, t, air_vel, land_vel)
+				t = planner_helper.get_time(info_dict, ID1, ID2, air_vel, land_vel, takeoff_vel, landing_vel)
+				e = planner_helper.get_energy(info_dict, ID1, ID2, t, air_vel, land_vel, takeoff_vel, landing_vel)
 				c = planner_helper.get_cost(e, t)
 				sucs.append((ID1, c))
 		return sucs
@@ -295,10 +297,14 @@ class flie:
 			(x2, y2, z2) = self.info_dict[ID2][0]
 			c2 = self.info_dict[ID2][1]
 			dist = ((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)**.5
-			if c1 == Category.cloud or c2 == Category.cloud or c1 == Category.interface or c2 == Category.interface or c1 == Category.air_waypoint or c2 == Category.air_waypoint:
-				v = air_vel
-			else:
-				v = land_vel
+			v = land_vel
+			if map_maker_helper.is_air(c1) or map_maker_helper.is_air(c2):
+				if z1 - .01 > z2:
+					v = landing_vel
+				elif z2 - .01 > z1:
+					v = takeoff_vel
+				else:
+					v = air_vel
 			expected_time = dist/float(v)
 			true_time = t2 - t1
 			new_path.append((ID1, t1))
@@ -329,19 +335,26 @@ class flie:
 					if ID2 != state:
 						(fx, fy, fz) = self.info_dict[ID2][0]
 						c2 = self.info_dict[ID2][1]
+						'''
 						dist_traveled = ((x1-fx)**2 + (y1-fy)**2 + (z1-fz)**2)**.5
-						if c1 == Category.cloud or c1 == Category.interface or c2 == Category.cloud or c2 == Category.interface or c1 == Category.air_waypoint or c2 == Category.air_waypoint:
-							v = air_vel
-						else:
-							v = land_vel
+						v = land_vel
+						if map_maker_helper.is_air(c1) or map_maker_helper.is_air(c2):
+							if z1 - .01 > z2:
+								v = landing_vel
+							elif z2 - .01 > z1:
+								v = takeoff_vel
+							else:
+								v = air_vel
 						time_passed = dist_traveled/float(v)
+						'''
+						time_passed = planner_helper.get_time(self.info_dict, state, ID2, air_vel, land_vel, takeoff_vel, landing_vel)
 						current_time = time + time_passed
 						safe_intervals = si_dict[ID2]
 						for interval in safe_intervals:
 							if interval[0] + space_time < current_time < interval[1] - space_time:
 								suc_state = ID2
 
-								energy = planner_helper.get_energy(self.info_dict, state, suc_state, time_passed, air_vel, land_vel)
+								energy = planner_helper.get_energy(self.info_dict, state, suc_state, time_passed, air_vel, land_vel, takeoff_vel, landing_vel)
 								cost = planner_helper.get_cost(energy, time_passed)
 								voltage_drop = planner_helper.get_voltage(energy)
 								final_voltage = voltage - voltage_drop
@@ -362,7 +375,7 @@ class flie:
 									if interval[0] <= arrival_time < interval[1] - space_time:
 
 										time_passed = arrival_time - time
-										energy = planner_helper.get_energy(self.info_dict, state, suc_state, time_passed, air_vel, land_vel)
+										energy = planner_helper.get_energy(self.info_dict, state, suc_state, time_passed, air_vel, land_vel, takeoff_vel, landing_vel)
 										cost = planner_helper.get_cost(energy, time_passed)
 										voltage_drop = planner_helper.get_voltage(energy)
 										final_voltage = voltage - voltage_drop

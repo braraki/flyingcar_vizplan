@@ -8,7 +8,8 @@
   <arg name="continuous" default="True" />
   <arg name="air_vel" default=".5" />
   <arg name="land_vel" default=".25" />
-
+  <arg name="takeoff_vel" default=".3" />
+  <arg name="landing_vel" default=".4" />
 
 
   <!--
@@ -39,6 +40,8 @@
     <arg name="continuous" value="$(arg continuous)" />
     <arg name="land_vel" value="$(arg land_vel)" />
     <arg name="air_vel" value="$(arg air_vel)" />
+    <arg name="takeoff_vel" default="$(arg takeoff_vel)" />
+    <arg name="landing_vel" default="$(arg landing_vel)" />
   </include>
 
 

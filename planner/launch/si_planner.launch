@@ -6,6 +6,9 @@
   <arg name="continuous" default="True" />
   <arg name="air_vel" default=".5" />
   <arg name="land_vel" default=".25" />
+  <arg name="takeoff_vel" default=".3" />
+  <arg name="landing_vel" default=".4" />
+
 
   <remap from="easy_sg/StartingID_topic" to="setup/StartingID_topic" />
   <remap from="si_planner/Starter" to="setup/Starter" />
@@ -16,6 +19,8 @@
   	<param name="continuous" value="$(arg continuous)" />
   	<param name="land_vel" value="$(arg land_vel)" />
   	<param name="air_vel" value="$(arg air_vel)" />
+    <param name="takeoff_vel" value="$(arg takeoff_vel)" />
+    <param name="landing_vel" value="$(arg landing_vel)" />
     <param name="air_buffer_dist" value=".5" />
     <param name="buffer_z_frac" value=".5" />
     <param name="show_reserved" value="False" />

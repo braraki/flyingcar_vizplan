@@ -9,6 +9,8 @@
   <arg name="continuous" default="True" />
   <arg name="air_vel" default="1.0" />
   <arg name="land_vel" default=".25" />
+  <arg name="takeoff_vel" default=".3" />
+  <arg name="landing_vel" default=".4" />
 
   <remap from="simple_marker/reserved_IDs_topic" to="$(arg planner)/reserved_IDs_topic" />
 
@@ -37,6 +39,8 @@
     <arg name="continuous" default="$(arg continuous)" />
     <arg name="air_vel" default="$(arg air_vel)" />
     <arg name="land_vel" default="$(arg land_vel)" />  
+    <arg name="takeoff_vel" default="$(arg takeoff_vel)" />
+    <arg name="landing_vel" default="$(arg landing_vel)" />
   </include>
 
 </launch>

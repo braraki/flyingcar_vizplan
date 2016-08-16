@@ -12,14 +12,25 @@ TIME_WEIGHT = 1 - ENERGY_WEIGHT
 
 cf_mass = .038
 
-def get_time(info_dict, ID1, ID2, air_vel, land_vel):
+def get_time(info_dict, ID1, ID2, air_vel, land_vel, takeoff_vel = None, landing_vel = None):
+	if takeoff_vel == None:
+		takeoff_vel = air_vel
+	if landing_vel == None:
+		landing_vel = air_vel
 	((x1, y1, z1),c1) = info_dict[ID1]
 	((fx, fy, fz), fc) = info_dict[ID2]
 	dist_traveled = ((x1-fx)**2 + (y1-fy)**2 + (z1-fz)**2)**.5
 	vel = land_vel
 	if map_maker_helper.is_air(c1) or map_maker_helper.is_air(fc):
-		vel = air_vel
-	time_passed = dist_traveled / float(vel)
+		if z1 - .01 > fz:
+			v = landing_vel
+		elif fz - .01 > z1:
+			v = takeoff_vel
+		else:
+			v = air_vel
+	else:
+		v = land_vel
+	time_passed = dist_traveled / float(v)
 	return(time_passed)
 
 def optimal_cost(info_dict, ID1, ID2, air_vel, land_vel, timestep):
@@ -34,20 +45,29 @@ def optimal_cost(info_dict, ID1, ID2, air_vel, land_vel, timestep):
 
 	return(TIME_WEIGHT*timestep + ENERGY_WEIGHT*(wait_energy+move_energy))
 
-def get_energy(info_dict, ID1, ID2, travel_time, air_vel, land_vel):
+def get_energy(info_dict, ID1, ID2, travel_time, air_vel, land_vel, takeoff_vel = None, landing_vel = None):
+	if takeoff_vel == None:
+		takeoff_vel = air_vel
+	if landing_vel == None:
+		landing_vel = air_vel
 	((x1, y1, z1),c1) = info_dict[ID1]
-	((fx, fy, fz), fc) = info_dict[ID2]
-	dist_traveled = ((x1-fx)**2 + (y1-fy)**2 + (z1-fz)**2)**.5
+	((x2, y2, z2), c2) = info_dict[ID2]
+	dist_traveled = ((x1-x2)**2 + (y1-y2)**2 + (z1-z2)**2)**.5
 	vel = land_vel
-	if map_maker_helper.is_air(c1) or map_maker_helper.is_air(fc):
-		vel = air_vel
+	if map_maker_helper.is_air(c1) or map_maker_helper.is_air(c2):
+		if z1 - .01 > z2:
+			vel = landing_vel
+		elif z2 - .01 > z1:
+			vel = takeoff_vel
+		else:
+			vel = air_vel
 	expected_time = dist_traveled/float(vel)
 	if expected_time < travel_time:
 		wait_energy = get_wait_energy(info_dict, ID1, travel_time - expected_time)
-		move_energy = get_move_energy(info_dict, ID1, ID2, expected_time, air_vel, land_vel)
+		move_energy = get_move_energy(info_dict, ID1, ID2, expected_time)
 	else:
 		wait_energy = 0
-		move_energy = get_move_energy(info_dict, ID1, ID2, travel_time, air_vel, land_vel)
+		move_energy = get_move_energy(info_dict, ID1, ID2, travel_time)
 	return(wait_energy + move_energy)
 
 def get_wait_energy(info_dict, ID1, wait_time):
@@ -72,7 +92,7 @@ def get_move_energy_opt(info_dict, ID1, ID2, move_time, air_vel, land_vel):
 	PE = max((fz-z1), 0)*cf_mass*9.8
 	return(TE + PE)
 
-def get_move_energy(info_dict, ID1, ID2, move_time, air_vel, land_vel):
+def get_move_energy(info_dict, ID1, ID2, move_time):
 	((x1, y1, z1),c1) = info_dict[ID1]
 	((fx, fy, fz), fc) = info_dict[ID2]
 	dist_traveled = ((x1-fx)**2 + (y1-fy)**2 + (z1-fz)**2)**.5
@@ -85,7 +105,7 @@ def get_move_energy(info_dict, ID1, ID2, move_time, air_vel, land_vel):
 	return(TE + PE)
 
 def get_cost(energy, time):
-	energy_coefficient = 1
+	energy_coefficient = .25
 	time_coefficient = 1
 	cost = energy*energy_coefficient + time*time_coefficient
 	return(cost)
