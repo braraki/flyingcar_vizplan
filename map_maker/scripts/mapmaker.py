@@ -352,8 +352,9 @@ class landscape:
 			sucs = self.ground_tile_successors(co1)
 			good_sucs = []
 			for s in sucs:
-				if co1 in self.ground_tile_successors(s):
-					good_sucs.append(s)
+				if s in self.tile_dict:
+					if self.ground_tile_successors(s):
+						good_sucs.append(s)
 			checked_d[co1] = good_sucs
 		return(checked_d)
 
@@ -720,6 +721,7 @@ for co in map_pre_dict.keys():
 		flyable = False
 	t = tile(map_tile_size, map_tile_size, exitnodelist, flyable, co[0]*map_tile_size, co[1]*map_tile_size, elevation)
 	map_dict[co] = t
+
 
 final_map = landscape(map_num_long, map_num_wide, map_dict)
 final_map.generate_interface_and_cloud(map_interface_height, map_cloud_height, map_num_cloud_layers, map_cloud_layer_dist, map_cloud_density)
