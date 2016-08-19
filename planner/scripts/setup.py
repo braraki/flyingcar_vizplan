@@ -15,9 +15,10 @@ import sys, select, termios, tty
 
 cf_num = int(rospy.get_param('/setup/cf_num'))
 centered = bool(rospy.get_param('/setup/centered'))
+follow = bool(rospy.get_param('/setup/follow'))
+follow_node_list = rospy.get_param('/setup/follow_node_list')
 
-set_start = False
-start_list = []
+
 
 park_dict = {}
 
@@ -28,9 +29,15 @@ def set_IDs():
 	return(starting_IDs)
 
 def set_ID(used, cf_num):
+	'''
 	if set_start:
 		if cf_num <= len(start_list) - 1:
 			return(start_list[cf_num])
+	'''
+	if follow:
+		first = follow_node_list[0]
+		chosen = first[cf_num]
+		return(chosen)
 	elif centered:
 		min_dist = None
 		chosen = None

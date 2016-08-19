@@ -10,6 +10,9 @@ import random
 
 from map_maker import map_maker_helper
 
+follow = bool(rospy.get_param('/opt_sg/follow'))
+follow_node_list = rospy.get_param('/opt_sg/follow_node_list')
+
 park_dict = {}
 
 class single_fly:
@@ -45,29 +48,37 @@ class system:
 		off_limits = []
 		allowed_IDs = park_dict.keys()
 		if f.num_paths == 0:
-			print('why am i here')
-			starts = allowed_IDs[:]
-			ends = allowed_IDs[:]
-			for f2 in self.fly_dict.values():
-				if f2.start in starts:
-					starts.remove(f2.start)
-				if f2.end in ends:
-					ends.remove(f2.end)
-			start = random.choice(starts)
-			end = random.choice(ends)
-			f.set_first_path(start, end)
-		else:
-			ends = allowed_IDs[:]
-			for f2 in self.fly_dict.values():
-				if f2.num_paths == f.num_paths + 1:
+			if follow:
+				start = follow_node_list[0][cf_ID]
+				end = follow_node_list[1][cf_ID]
+				f.set_first_path(start, end)
+			else:
+				starts = allowed_IDs[:]
+				ends = allowed_IDs[:]
+				for f2 in self.fly_dict.values():
+					if f2.start in starts:
+						starts.remove(f2.start)
 					if f2.end in ends:
 						ends.remove(f2.end)
-			print(ends)
-			if len(ends) > 1 and f.end in ends:
-				ends.remove(f.end)
-			end = random.choice(ends)
-			print(end)
-			f.set_path(end)
+				start = random.choice(starts)
+				end = random.choice(ends)
+				f.set_first_path(start, end)
+		else:
+			if follow and len(follow_node_list) > f.num_paths+1:
+				end = follow_node_list[f.num_paths + 1][cf_ID]
+				f.set_path(end)
+			else:
+				ends = allowed_IDs[:]
+				for f2 in self.fly_dict.values():
+					if f2.num_paths == f.num_paths + 1:
+						if f2.end in ends:
+							ends.remove(f2.end)
+				print(ends)
+				if len(ends) > 1 and f.end in ends:
+					ends.remove(f.end)
+				end = random.choice(ends)
+				print(end)
+				f.set_path(end)
 
 	def get_path(self, cf_ID):
 		f = self.fly_dict[cf_ID]
@@ -82,7 +93,8 @@ class system:
 		starting_IDs = data.starting_IDs
 		for index in range(len(starting_IDs)):
 			f = single_fly()
-			f.set_first_path(starting_IDs[index], starting_IDs[index])
+			if not follow:
+				f.set_first_path(starting_IDs[index], starting_IDs[index])
 			self.fly_dict[index] = f
 
 
