@@ -8,6 +8,8 @@
   <arg name="land_vel" default=".25" />
   <arg name="takeoff_vel" default=".3" />
   <arg name="landing_vel" default=".4" />
+  <arg name="follow" default="False" />
+  <arg name="follow_nodes" default="3cf_2steps_everytile" />
 
 
   <remap from="easy_sg/StartingID_topic" to="setup/StartingID_topic" />
@@ -26,11 +28,16 @@
     <param name="show_reserved" value="False" />
   </node>
 
-  <node name="easy_sg" pkg="planner" type="easy_sg.py"/>
+  <node name="easy_sg" pkg="planner" type="easy_sg.py">
+    <param name="follow" value="$(arg follow)" />
+    <rosparam command="load" file="$(find planner)/config/$(arg follow_nodes).yaml" />
+  </node>
 
   <node name="setup" pkg="planner" type="setup.py" output="screen">
     <param name="cf_num" value="$(arg cf_num)" />
     <param name="centered" value="True" />
+    <param name="follow" value="$(arg follow)" />
+    <rosparam command="load" file="$(find planner)/config/$(arg follow_nodes).yaml" />
   </node>
 
 </launch>

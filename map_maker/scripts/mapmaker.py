@@ -18,9 +18,9 @@ map_cloud_layer_dist = float(rospy.get_param('/mapmaker/map_cloud_layer_dist'))
 map_cloud_density = int(rospy.get_param('/mapmaker/map_cloud_density'))
 helipad_height = float(rospy.get_param('/mapmaker/helipad_height'))
 
-air_vel = float(rospy.get_param('/complex_map/air_vel'))
-time_step = float(rospy.get_param('/complex_map/time_step'))
-optimal = bool(rospy.get_param('/complex_map/optimal'))
+air_vel = float(rospy.get_param('/mapmaker/air_vel'))
+time_step = float(rospy.get_param('/mapmaker/time_step'))
+optimal = bool(rospy.get_param('/mapmaker/optimal'))
 
 #imported map parameters
 map_num_long = int(rospy.get_param('/mapmaker/map_num_long'))
@@ -751,6 +751,8 @@ category_list = [None]*num_nodes
 for n in return_nodes:
 	(x_list[n.ID], y_list[n.ID], z_list[n.ID]) = (n.x, n.y, n.z)
 	category_list[n.ID] = n.category
+	if n.category == Category.park:
+		print(n.ID)
 
 def response(req):
 	return MapTalkResponse(category_list, x_list, y_list, z_list, num_nodes, A5, mark_x, mark_y)
