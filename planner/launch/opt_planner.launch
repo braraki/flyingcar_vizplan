@@ -6,6 +6,8 @@
   <arg name="continuous" default="True" />
   <arg name="air_vel" default="1.0" />
   <arg name="land_vel" default=".3" />
+  <arg name="takeoff_vel" default=".3" />
+  <arg name="landing_vel" default=".4" />
   <arg name="follow" default="False" />
   <arg name="follow_nodes" default="3cf_2steps_everytile" />
 
