@@ -3,6 +3,7 @@
 import rospy
 from map_maker.srv import *
 from map_maker.msg import *
+from planner.msg import *
 
 import time
 
