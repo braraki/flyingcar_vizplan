@@ -10,6 +10,7 @@
   <arg name="land_vel" default=".25" />
   <arg name="takeoff_vel" default=".3" />
   <arg name="landing_vel" default=".4" />
+  <arg name="optimal" default="False" />
 
 
   <!--
@@ -31,7 +32,7 @@
     <arg name="land_vel" value="$(arg land_vel)" />
     <arg name="air_vel" value="$(arg air_vel)" />
     <arg name="time_step" default=".5" />
-    <arg name="optimal" default="True" />
+    <arg name="optimal" value="$(arg optimal)" />
   </include>
 
   <include file="$(find planner)/launch/$(arg planner).launch">

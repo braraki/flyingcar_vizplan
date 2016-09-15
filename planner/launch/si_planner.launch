@@ -3,13 +3,13 @@
 
   <arg name="cf_num" default="1" />
   <arg name="z_coefficient" default="4"/>
-  <arg name="continuous" default="False" />
-  <arg name="air_vel" default=".5" />
-  <arg name="land_vel" default=".25" />
-  <arg name="takeoff_vel" default=".3" />
-  <arg name="landing_vel" default=".4" />
+  <arg name="continuous" default="True" />
+  <arg name="air_vel" default=".3" />
+  <arg name="land_vel" default=".15" />
+  <arg name="takeoff_vel" default=".15" />
+  <arg name="landing_vel" default=".3" />
   <arg name="follow" default="False" />
-  <arg name="follow_nodes" default="icra" />
+  <arg name="follow_nodes" default="icra_fly_over" />
 
 
   <remap from="easy_sg/StartingID_topic" to="setup/StartingID_topic" />

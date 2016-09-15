@@ -7,10 +7,11 @@
   <arg name="planner" default="si_planner" />
   <arg name="buildings" default="True" />
   <arg name="continuous" default="True" />
-  <arg name="air_vel" default="1.0" />
-  <arg name="land_vel" default=".25" />
-  <arg name="takeoff_vel" default=".3" />
-  <arg name="landing_vel" default=".4" />
+  <arg name="air_vel" default="0.3" />
+  <arg name="land_vel" default=".1" />
+  <arg name="takeoff_vel" default=".15" />
+  <arg name="landing_vel" default=".3" />
+  <arg name="optimal" default="False" />
 
   <remap from="simple_marker/reserved_IDs_topic" to="$(arg planner)/reserved_IDs_topic" />
 
@@ -32,15 +33,16 @@
   </include>
 
   <include file="$(find flyingcar_demo)/launch/just_planner.launch">
-    <arg name="cf_num" default="$(arg cf_num)"/>
-    <arg name="z_coefficient" default="$(arg z_coefficient)" />
-    <arg name="map" default="$(arg map)" />
-    <arg name="planner" default="$(arg planner)" />
-    <arg name="continuous" default="$(arg continuous)" />
-    <arg name="air_vel" default="$(arg air_vel)" />
-    <arg name="land_vel" default="$(arg land_vel)" />  
-    <arg name="takeoff_vel" default="$(arg takeoff_vel)" />
-    <arg name="landing_vel" default="$(arg landing_vel)" />
+    <arg name="cf_num" value="$(arg cf_num)"/>
+    <arg name="z_coefficient" value="$(arg z_coefficient)" />
+    <arg name="map" value="$(arg map)" />
+    <arg name="planner" value="$(arg planner)" />
+    <arg name="continuous" value="$(arg continuous)" />
+    <arg name="air_vel" value="$(arg air_vel)" />
+    <arg name="land_vel" value="$(arg land_vel)" />  
+    <arg name="takeoff_vel" value="$(arg takeoff_vel)" />
+    <arg name="landing_vel" value="$(arg landing_vel)" />
+    <arg name="optimal" value="$(arg optimal)" />
   </include>
 
 </launch>

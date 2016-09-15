@@ -9,7 +9,7 @@
   <arg name="takeoff_vel" default=".3" />
   <arg name="landing_vel" default=".4" />
   <arg name="follow" default="False" />
-  <arg name="follow_nodes" default="3cf_2steps_everytile" />
+  <arg name="follow_nodes" default="icra_fly_over" />
 
   <remap from="opt_sg/StartingID_topic" to="setup/StartingID_topic" />
   <remap from="opt_planner/Starter" to="setup/Starter" />

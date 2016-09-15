@@ -6,6 +6,7 @@ from std_msgs.msg import Bool
 from map_maker.srv import *
 from map_maker.msg import *
 from planner.srv import *
+from planner.msg import *
 
 from interactive_markers.interactive_marker_server import *
 from visualization_msgs.msg import *

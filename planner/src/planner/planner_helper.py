@@ -80,18 +80,18 @@ def get_opt_energy(info_dict, ID1, ID2, air_vel, land_vel, timestep):
 	expected_time = dist_traveled/float(vel)
 	if ID1 == ID2:
 		wait_energy = get_wait_energy(info_dict, ID1, timestep)
-		move_energy = get_move_energy(info_dict, ID1, ID2, timestep, air_vel, land_vel)
+		move_energy = get_move_energy_opt(info_dict, ID1, ID2, timestep, air_vel, land_vel)
 	else:
 		wait_energy = 0
-		move_energy = get_move_energy(info_dict, ID1, ID2, timestep, air_vel, land_vel)
+		move_energy = get_move_energy_opt(info_dict, ID1, ID2, timestep, air_vel, land_vel)
 	return(wait_energy + move_energy)
 
 def get_wait_energy(info_dict, ID1, wait_time):
 	((x1, y1, z1),c1) = info_dict[ID1]
 	if map_maker_helper.is_air(c1):
-		wait_energy_expenditure = 2
+		wait_energy_expenditure = 8
 	else:
-		wait_energy_expenditure = .05
+		wait_energy_expenditure = 0.1
 	return(wait_time * wait_energy_expenditure)
 
 
@@ -101,9 +101,9 @@ def get_move_energy_opt(info_dict, ID1, ID2, move_time, air_vel, land_vel):
 	((fx, fy, fz), fc) = info_dict[ID2]
 	dist_traveled = ((x1-fx)**2 + (y1-fy)**2 + (z1-fz)**2)**.5
 	if map_maker_helper.is_air(c1) or map_maker_helper.is_air(fc):
-		const_energy_expenditure = 1
+		const_energy_expenditure = 7.8
 	else:
-		const_energy_expenditure = .125
+		const_energy_expenditure = .6
 	TE = const_energy_expenditure*dist_traveled
 	PE = max((fz-z1), 0)*cf_mass*9.8
 	return(TE + PE)
@@ -113,19 +113,24 @@ def get_move_energy(info_dict, ID1, ID2, move_time):
 	((fx, fy, fz), fc) = info_dict[ID2]
 	dist_traveled = ((x1-fx)**2 + (y1-fy)**2 + (z1-fz)**2)**.5
 	if map_maker_helper.is_air(c1) or map_maker_helper.is_air(fc):
-		const_energy_expenditure = 2
+		const_energy_expenditure = 7.8
 	else:
-		const_energy_expenditure = .125
+		const_energy_expenditure = .6
 	TE = const_energy_expenditure*move_time
 	PE = max((fz-z1), 0)*cf_mass*9.8
 	return(TE + PE)
 
 def get_cost(energy, time):
 	energy_coefficient = .25
-	time_coefficient = 1
+	time_coefficient = 1 - energy_coefficient
 	cost = energy*energy_coefficient + time*time_coefficient
 	return(cost)
 
 def get_voltage(energy):
 	#battery is 240mAh
 	return(energy)
+
+def current_draw(power, distance, velocity):
+	current = power/3.7
+	current_draw = current*distance/velocity
+	return current_draw

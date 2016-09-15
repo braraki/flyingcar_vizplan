@@ -516,6 +516,7 @@ class full_system:
 	def __init__(self, adj_array, info_dict):
 		self.adj_array = adj_array
 		self.info_dict = info_dict
+		print "NUMBER OF NODES: " + str(len(self.info_dict))
 		self.flie_list = []
 		self.pubTime = rospy.Publisher('~time_path_topic',HiPathTime, queue_size=10)
 		self.pubRes = rospy.Publisher('~reserved_IDs_topic', reserved_IDs, queue_size=10)

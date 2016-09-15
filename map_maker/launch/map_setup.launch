@@ -4,12 +4,12 @@
   <arg name="map" default="duckytown" />
   <arg name="air_vel" default=".5" />
   <arg name="land_vel" default=".25" />
-  <arg name="time_step" default=".5" />
+  <arg name="time_step" default="0.5" />
   <arg name="optimal" default="False" />
 
   <node name="mapmaker" pkg="map_maker" type="mapmaker.py" output="screen">
     <param name="map_road_ratio" value=".75"/>
-    <param name="map_tile_size" value=".5"/>
+    <param name="map_tile_size" value=".7"/>
     <param name="map_interface_height" value=".75"/>
     <param name="map_cloud_height" value="1.25"/>
     <param name="map_num_cloud_layers" value="1"/>
@@ -23,7 +23,7 @@
   </node>
   
   <node name="complex_map" pkg="map_maker" type="complex_map.py">
-    <param name="ideal_way_point_d" value=".15"/>
+    <param name="ideal_way_point_d" value=".2"/>
     <param name="land_vel" value="$(arg land_vel)" />
     <param name="air_vel" value="$(arg air_vel)" />
     <param name="time_step" value="$(arg time_step)" />
