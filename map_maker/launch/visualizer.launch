@@ -13,8 +13,8 @@
     <param name="tilethickness" value=".05"/>
     <param name="roadthickness" value=".025"/>
     <param name="parking_frac" value=".7"/>
-    <param name="air_node_display" value="True"/>
-    <param name="waypoint_node_display" value="True"/>
+    <param name="air_node_display" value="False"/>
+    <param name="waypoint_node_display" value="False"/>
     <param name="buildings" value="$(arg buildings)"/>
   </node>
 

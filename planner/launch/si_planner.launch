@@ -8,8 +8,8 @@
   <arg name="land_vel" default=".15" />
   <arg name="takeoff_vel" default=".15" />
   <arg name="landing_vel" default=".3" />
-  <arg name="follow" default="False" />
-  <arg name="follow_nodes" default="icra_fly_over" />
+  <arg name="follow" default="True" />
+  <arg name="follow_nodes" default="icra" />
 
 
   <remap from="easy_sg/StartingID_topic" to="setup/StartingID_topic" />

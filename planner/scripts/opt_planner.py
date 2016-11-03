@@ -716,6 +716,7 @@ class full_system:
 		for cf in range(cf_num):
 			self.battery_range.append(4)
 		self.true_costs, self.battery_costs = edge_costs(self.info_dict, self.adj_array)
+		self.info_pub = rospy.Publisher('/info_topic',String, queue_size=20)		
 		self.pubTime = rospy.Publisher('~time_path_topic',HiPathTime, queue_size=10)
 		self.runner()
 
@@ -781,7 +782,7 @@ class full_system:
 			old_startend = startend
 			old_time_horizon = self.time_horizon
 			planning_end_time = time.time()
-			self.planning_time = planning_start_time - planning_end_time
+			self.planning_time = planning_end_time - planning_start_time
 
 			model.print_solution()
 			self.battery_range = model.update_batteries()
@@ -791,9 +792,36 @@ class full_system:
 				print "PUBLISHING PATH"
 				print cf, self.paths[cf]
 				#print times[cf]
+				(path_cost, path_distance, path_time) = self.analyze_path(self.paths[cf],self.times[cf])
+				self.info_pub.publish(str(self.planning_time) + '\t' + str(path_cost) + '\t' + str(path_distance) + '\t' + str(path_time))
 				self.pubTime.publish(cf_num,cf,self.paths[cf],self.times[cf],self.planning_time)
 
 			return m, flow, arcs, costs, old_startend, old_time_horizon
+
+	def analyze_path(self,path, times):
+		print "DSLJFSDL:KDJF:SLDKFJLSD:KJF:SDLKJF:SDFJSD:"
+		print path
+		start_node = path[0]
+		end_node = path[-1]
+		end_ID = end_node
+		path_time = times[-1] - times[0]
+		prev_x = 0
+		prev_y = 0
+		prev_z = 0
+		distance = 0
+		path_cost = 0
+		for index, ID in enumerate(path):
+			if index < len(path)-1:
+				print ID, path[index+1]
+				path_cost += self.true_costs[(ID,path[index+1])] 
+			infoz = self.info_dict[ID]
+			(x,y,z) = infoz[0]
+			if index > 0:
+				distance += ((z-prev_z)**2 + (y-prev_y)**2 + (x-prev_x)**2)**0.5
+			prev_x = x
+			prev_y = y
+			prev_z = z
+		return path_cost, distance, path_time
 
 	def publish_old_paths(self):
 		for cf in range(cf_num):

@@ -6,6 +6,7 @@ from map_maker.srv import *
 from map_maker.msg import *
 from planner.srv import *
 from planner.msg import *
+from std_msgs.msg import String
 
 import time
 
@@ -260,8 +261,10 @@ class flie:
 		self.p = None
 		self.times = []
 		self.planning_time = None
-		self.voltage = 1000
+		self.record_planning_time = None
+		self.voltage = 1000000000
 		self.running = True
+		self.info_pub = rospy.Publisher('/info_topic',String, queue_size=20)
 
 	def generate_random_path(self):
 		(ID1, ID2) = self.request_situation()
@@ -413,11 +416,38 @@ class flie:
 		if p_info!= None:
 			(path, self.voltage) = p_info
 			total_planning_time = time.time() - start_planning_time
+			(path_cost, path_distance, path_time) = self.analyze_path(path)
+			self.info_pub.publish(str(total_planning_time) + '\t' + str(path_cost) + '\t' + str(path_distance) + '\t' + str(path_time))
 			print('Time to plan: '+str(total_planning_time))
 			print('Current voltage: '+str(self.voltage))
 			return(path, total_planning_time)
 		else:
 			self.kill(ID1)
+
+	def analyze_path(self,path):
+		print "DSLJFSDL:KDJF:SLDKFJLSD:KJF:SDLKJF:SDFJSD:"
+		print path
+		start_node = path[0][0]
+		end_node = path[-1][0]
+		end_ID = end_node
+		cost_dict = true_costs(self.info_dict, self.adj_array, end_ID)
+		path_time = path[-1][1] - path[0][1]
+		prev_x = 0
+		prev_y = 0
+		prev_z = 0
+		distance = 0
+		path_cost = 0
+		for index, node in enumerate(path):
+			ID = node[0]
+			path_cost += cost_dict[ID] 
+			infoz = self.info_dict[ID]
+			(x,y,z) = infoz[0]
+			if index > 0:
+				distance += ((z-prev_z)**2 + (y-prev_y)**2 + (x-prev_x)**2)**0.5
+			prev_x = x
+			prev_y = y
+			prev_z = z
+		return path_cost, distance, path_time
 
 	#kills path, cf will stop moving, sends almost empty path
 	def kill(self, end_ID):
