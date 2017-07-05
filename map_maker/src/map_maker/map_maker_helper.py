@@ -36,6 +36,7 @@ def map_maker_client(map_topic='send_complex_map'):
 	global mark_x
 	global mark_y
 	rospy.wait_for_service(map_topic)
+	print "done waiting for " + map_topic
 	try:
 		print('calling')
 		func = rospy.ServiceProxy(map_topic, MapTalk)

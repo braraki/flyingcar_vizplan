@@ -750,7 +750,8 @@ z_list = [None]*num_nodes
 category_list = [None]*num_nodes
 for n in return_nodes:
 	(x_list[n.ID], y_list[n.ID], z_list[n.ID]) = (n.x, n.y, n.z)
-	category_list[n.ID] = n.category
+	# added .value to convert Enum into int
+	category_list[n.ID] = n.category.value
 	if n.category == Category.park:
 		print(n.ID)
 
@@ -759,7 +760,7 @@ def response(req):
 
 def info_sender():
 	s = rospy.Service('send_map', MapTalk,response)
-	print('ready to send info back')
+	print('mapmaker ready to send info back')
 	rospy.spin()
 
 if __name__ == "__main__":

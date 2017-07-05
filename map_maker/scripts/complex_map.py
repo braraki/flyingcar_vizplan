@@ -154,16 +154,17 @@ class sender:
 
 		for ID in info_dict:
 			((self.x_list[ID], self.y_list[ID], self.z_list[ID]), self.category_list[ID]) = info_dict[ID]
+			self.category_list[ID] = info_dict[ID][1].value
 
 	def response(self, req):
 		return MapTalkResponse(self.category_list, self.x_list, self.y_list, self.z_list, self.num_nodes, self.A5, self.mark_x, self.mark_y)
 
 	def info_sender(self):
 		s = rospy.Service('send_complex_map', MapTalk ,self.response)
-		print('ready to send info back')
+		print('complex map ready to send info back')
 
 if __name__ == "__main__":
-	print('test')
+	print('complex map started')
 	rospy.init_node('complex_map_maker_server')
 	(info_dict, A) = map_maker_helper.map_maker_client('send_map')
 	(mark_x, mark_y) = map_maker_helper.get_marks()

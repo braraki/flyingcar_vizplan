@@ -18,6 +18,9 @@ centered = bool(rospy.get_param('/setup/centered'))
 follow = bool(rospy.get_param('/setup/follow'))
 follow_node_list = rospy.get_param('/setup/follow_node_list')
 
+print "FOLLOW NODE LIST:"
+print follow_node_list
+
 
 
 park_dict = {}
@@ -69,7 +72,8 @@ def least_distance(point, used):
 
 def setter():
 	starting_IDs = set_IDs()
-	print(starting_IDs)
+	print 'starting IDS: '
+	print starting_IDs
 	x_list = []
 	y_list = []
 	z_list = []
@@ -114,4 +118,6 @@ if __name__ == "__main__":
 		c = info_dict[ID][1]
 		if c == Category.park:
 			park_dict[ID] = info_dict[ID][0]
+	print "park_dict: "
+	print park_dict
 	setter()

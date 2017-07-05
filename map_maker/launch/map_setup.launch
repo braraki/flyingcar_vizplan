@@ -22,7 +22,7 @@
     <rosparam command="load" file="$(find map_maker)/config/$(arg map).yaml" />
   </node>
   
-  <node name="complex_map" pkg="map_maker" type="complex_map.py">
+  <node name="complex_map" pkg="map_maker" type="complex_map.py" output="screen">
     <param name="ideal_way_point_d" value=".2"/>
     <param name="land_vel" value="$(arg land_vel)" />
     <param name="air_vel" value="$(arg air_vel)" />
